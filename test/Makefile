@@ -50,7 +50,7 @@ endif
 ifeq ($(HOSTTYPE),x86_64-linux)
   HOSTDESC = $(HOSTTYPE)
   CC       = $(LINUXCC)
-  CFLAGS   = $(LINUXCFLAGS) -m32
+  CFLAGS   = $(LINUXCFLAGS)
   LIBS     = $(LINUXLIBS)
   BINDIR   = x86_64-linux-bin
   OSFOUND  = 1
