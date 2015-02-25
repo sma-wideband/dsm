@@ -1,0 +1,48 @@
+$Id: README.releases,v 2.4 2013/03/01 21:10:48 ckatz Exp $
+
+This file describes the meanings of the various tags that have been
+assigned to dsm files.  Use "cvs status -v" to examine the tags.
+
+rel-1-5   release 1.5  First tagged release of DSM.  This probably
+                       should have been done a long time ago, but
+                       wasn't, so DSM has undergone many changes since
+                       then.  That's why we start with release 1.5.
+		       This is being done now because we are working on
+                       the multi-platform port.  Release 1.5 is for
+                       LynxOS-only use.  (in fact, it will compile under
+                       Linux, and will even run, but not properly since
+                       the byte-ordering issues aren't solved)
+
+rel-1-5-with-powerpc-linux  **** OBSOLETE ****
+                            This is a branch rooted at rel-1-5.  It
+                            has support for PowerPC Linux included
+                            (specifically, using SysV semaphores instead
+                            of POSIX semaphores).  It's a branch because
+                            the main trunk contains lots of changes for
+                            multi-platform development that we don't
+                            want to make the default yet since that
+                            would require recompilation of every binary
+                            that uses DSM.  This branch will allow the
+                            use of PowerPC Linux before full
+                            multi-platform behavior is available.
+
+                            NOTE (31 Jan 2006): Now that full
+                            multi-platform behavior has been
+                            implemented, this branch is obsolete. It
+                            will not be merged back to the trunk.
+
+rel-1-5-1  release 1.5.1  Last version of 1.5 before transition to
+                          2.0. Functionally the same as 1.5, with bug
+			  fixes and updates.
+
+rel-2_0  release 2.0  First release of DSM with completed multi-platform
+                      ablility and structure data type.
+
+rel-2_5  release 2.5  Adds mirroring capability.
+
+rel-2_6  release 2.6  Removes mirroring capability. Adds class-wide
+                      write capability.
+
+rel-2_7  release 2.7  Bug fixes (memory leak).  Adds ability to run on
+                      Linux machines which have multiple network
+                      addresses.

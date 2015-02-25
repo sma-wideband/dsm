@@ -1,0 +1,718 @@
+<html>
+<title>DSM - Distributed Shared Memory for SMA Computers</title>
+<body>
+<h1>DSM - Distributed Shared Memory for SMA Computers</h1>
+
+<p>Charlie Katz</p>
+<p><pre>$Id: dsm.html,v 1.4 2009/06/15 16:58:08 ckatz Exp $</pre></p>
+
+<hr>
+<p>DSM (Distributed Shared Memory) is a system for data sharing and
+synchronization among SMA 
+computers over the network.  Originally modeled on the <a
+href="http://sma-www.cfa.harvard.edu/private/memos/141/141.html">Reflective
+Memory</a> system used between hal9000 and the antenna computers, DSM
+has grown beyond its initial design to provide additional features.</p>
+
+<p>
+<li><a href="#features">Summary of Features</a>
+<li><a href="#architecture">System Architecture</a>
+<li><a href="#config">Configuration</a>
+<li><a href="#client">Client API</a>
+<li><a href="#diagnostics">Diagnostic Facilities</a>
+<li><a href="#sample">Sample Client Program</a>
+
+</p>
+
+<hr><a name="features"><h2>Summary of Features</h2></a>
+<p><b>Multi-platform</b> - At this writing, DSM runs on PowerPC LynxOS
+and x86 Linux.  If necessary, it will be ported to other platforms.</p>
+
+<p><b>Data Types</b> - DSM allows the sharing of several data types:
+<ul>
+<li>byte (8 bits)
+<li>short integer (16 bits)
+<li>long integer (32 bits)
+<li>single-precision floating point (32 bits)
+<li>double-precision floating point (64 bits)
+<li>character strings, arbitrary length
+<li>arrays of the above types
+<li>composite structures: arbitrary groups of the above types
+</ul>
+</p>
+
+<p><b>Synchronization</b> - DSM provides the ability for clients to
+sleep while waiting for data to change anywhere in the DSM system.</p>
+
+<p><b>Timestamping</b> - All DSM shared data are marked with the time
+they most recently changed.</p>
+
+<p><b>Robust</b> - Server and clients recover automatically and
+transparently from most fault conditions.  Clients survive
+restarts of the server.  Individual server restarts do not cause data
+loss.</p>
+
+
+
+<hr><a name="architecture"><h2>System Architecture</h2></a>
+<p>DSM uses Remote Procedure Calls (RPC) over TCP for communications
+both between client and server within a host computer, and between
+servers on different hosts.  The DSM server almost completely decouples
+the local client services from the host-to-host synchronization
+procedure.  This arrangement protects clients from latencies due to
+problems with the network, remote hosts, and remote DSM servers.  Note
+that this means clients do not know when or even if a remote
+synchronization succeeded.  In practice this has not been a problem, and
+even if it is, the timestamp and synchronization facilities allow
+client programs to take this uncertainty into account when it matters.</p>
+<center><img src="dsm_architecture.gif"></center>
+
+
+
+<hr>
+<a name="config"><h2>Configuration</h2></a>
+<h3>Server startup</h3>
+<p>The server is in <tt>$COMMONBIN/dsm</tt> and has two optional
+command-line switches:
+<ul>
+<li><tt>-v</tt> activates diagnostic output to <tt>stderr</tt>; the
+server throughtput will be dramatically reduced in this mode, so it is
+used only for debugging
+<li><tt>-f [configuration file path]</tt> specifies the location of the
+configuration file
+</ul>
+On startup, the server tries to read the configuration file.  If the
+<tt>-f</tt> command line option is provided, it uses the specified file
+path.  If not, it uses the value of the environment variable
+<tt>DSM_ALLOCATION_FILE</tt>.  If there is no such variable, it uses
+<tt>/global/dsm/dsm_allocation</tt>.
+
+<h3>Allocation file</h3>
+<p>
+The data sharing configuration for DSM is described in the allocation
+file.  When the file is modified, it must be processed into a form which
+DSM can read. This is done by typing "<tt>make allocation</tt>" in the
+DSM directory <tt>$GLOBAL/dsm</tt>.  Then, to activate the changes, the
+DSM program must be restarted on all of the systems.</p>
+
+<p>
+The allocation file may contain four types of directives: class
+definitions, allocations, structure definitions, and share definitions.
+It may also contain comments, indicated with pound ("#") characters.
+
+<h4>class definitions</h4>
+Class definitions simply define groups of computers for later use in
+share definitions.  A class definition consists of the word "class", the
+name of the class, and a comma-separated list of resolvable host
+names. Example: to define two classes, CL1 and CL2, each containing two
+host names, write
+<pre>
+class  CL1  host1,host2
+class  CL2  host3,host4
+</pre>
+
+
+<h4>allocations</h4>
+Allocation directives are used in structure definitions and share
+definitions to specify the actual data to be shared.  Allocation names
+include several "fields":
+<p>
+<tt>name_type</tt>   or   <tt>name_Vm_..._type</tt>
+<p>
+<tt>name</tt> is a descriptive name (may contain additional underscores).<br>
+<tt>type</tt> is a code describing the data type:<br>
+<pre>
+   B  = integer, 8 bit                (1 byte)
+   S  = integer, 16 bit               (2 bytes)
+   L  = integer, 32 bit               (4 bytes)
+   F  = IEEE floating point, 32 bit   (4 bytes)
+   D  = IEEE floating point, 64 bit   (8 bytes)
+   Cn = character array (string) of length n
+   X  = composite structure
+</pre>
+
+Any code except "X" may be preceded by one or more sequences of
+"Vm" to specify an array.
+
+<p>
+Examples:
+<pre>
+ DSM_CRATE_VAL1_F          : a 4-byte float
+ DSM_HAL_FILE_NAME_C50     : a 50 character string
+ DSM_DDS_DATA_V10_S        : an array of 10 16-bit integers
+ DSM_MRG_FDATA_V128_V128_D : a 128x128 array of 64-bit floating point values
+ DSM_CORR_PKT_X            : a structure previously defined elsewhere
+</pre>
+
+Names are case-sensitive, and may not be longer than
+<tt>DSM_NAME_LENGTH</tt> characters,  as defined in <tt>dsm.h</tt>. 
+</p>
+
+
+
+<h4>structure definitions</h4>
+Structure definitions create named composite data types which may be
+used later in share definitions.  A structure definition begins with the
+directive "structure&nbsp;&lt;name&gt;" which defines the name.  This is
+followed by one or more allocation names (except those for other structures).
+It ends with the directive "end_structure".  Example:
+<pre>
+structure DSM_TEST_1_X
+  FIELD1_F
+  FIELD2_L
+  FIELD3_C20
+  FIELD4_V10_S 
+  FIELD5_V24_C24
+end_structure
+</pre>
+The structure "DSM_TEST_1_X" contains five elements: a 4-byte float, a
+long integer, a 20 character string, an array of 10 short integers, and
+an array of 24 character strings each of length 24.
+
+<h4>share definitions</h4>
+Share definitions describe how data are actually shared between
+computers.  A share definition begins with the directive "share",
+followed by two class names.  One or more allocation names then appear
+on subsequent lines.  This
+creates a shared space for every pair of hostnames formed between class1
+and class2.  For example, using the classes <tt>CL1</tt> and
+<tt>CL2</tt> defined above:
+
+<pre>
+share CL1 CL2
+  DSM_VAL_F
+  DSM_QTY_L
+  DSM_VEC_V10_S
+  DSM_TEST_1_X
+</pre>
+Since each class contains two host names, this share definition
+allocates four independent shared spaces:<br>
+<pre>
+  host1 - host3
+  host1 - host4
+  host2 - host3
+  host2 - host4
+</pre>
+
+Each of these pairs shares four allocations: a float, a long integer, an
+array of 10 short integers, and a structure.  It is important to note
+that these four spaces are independent; e.g. changing the value of the
+<tt>host1-host3</tt> copy of <tt>DSM_VAL_F</tt> changes it only in that
+copy.  The <tt>DSM_VAL_F</tt> values in the <tt>host1-host4</tt>,
+<tt>host2-host3</tt>, and <tt>host2-host4</tt> spaces are unaffected.
+This exclusively pairwise sharing is due to the design of DSM to mimic
+reflective memory functionality.
+
+<p>
+If a host name appears in both classes in a share definition, a shared
+space will be created that is available only within that host.
+
+<hr><a name="client"><h2>Client API</h2></a>
+
+<p>To access DSM, a program #includes the header file
+<tt>$GLOBALINC/dsm.h</tt> and links with 
+<pre>
+-L$COMMONLIB -ldsm -lrpc -lnetinet  (LynxOS)
+
+-L$COMMONLIB -ldsm -lpthread -lrt   (Linux)
+</pre>
+This makes available a number of DSM functions and data structures.  Most of
+the functions return a status code of type <tt>int</tt>, described in <a
+href="#returncodes">Return Codes</a>.
+
+
+<h4>general</h4>
+<p>
+<table><tr><td colspan="2"><tt>int dsm_open(void);<br>
+int dsm_close(void);</tt><br></td></tr>
+<tr><td>&nbsp;</td><td>Initialize or terminate DSM usage.
+<tt>dsm_open()</tt> must be called before any other DSM function may be
+used.  Once <tt>dsm_close()</tt> has been called, subsequent DSM
+operations will fail until <tt>dsm_open()</tt> is called again.</td></tr>
+</table>
+</p>
+
+<table><tr><td colspan="2"><tt>int dsm_get_allocation_list(int
+       *nhosts, struct dsm_allocation_list **alp);</tt></td></tr> 
+       <tr><td>&nbsp;</td>
+           <td>Retrieve the entire allocation list for the local
+	   machine.  <tt>alp</tt> is the address of
+	   a pointer to a <tt>struct dsm_allocation_list</tt>, which is
+	   defined in <tt>dsm.h</tt>:
+	   <pre>
+    struct dsm_allocation_list {
+       /* the name of a host with which we share */
+       char host_name[DSM_NAME_LENGTH];
+
+       int n_entries;     /* number of entries in the array         */
+       char **alloc_list; /* array of strings with allocation names */
+    };</pre><p>
+           When the function returns, <tt>*alp</tt> will point to an
+           array of <tt>nhosts</tt> of these structures.  Each entry in
+           the array has <tt>alloc_list</tt> pointing to an array of
+           <tt>n_entries</tt> strings, each of length
+           <tt>DSM_FULL_NAME_LENGTH</tt>, containing the names of the
+           allocations shared with that host.  For structure elements,
+           the name will be of the form
+           "<tt>structure_name:element_name</tt>". 
+	   <p>
+	   The memory allocated to the list may be freed with
+           <tt>dsm_destroy_allocation_list()</tt>.
+           </td></tr>
+</table>
+</p>
+
+<p>
+<table><tr><td colspan="2"><tt>void dsm_destroy_allocation_list(struct dsm_allocation_list **alp);</tt><br></td></tr>
+<tr><td>&nbsp;</td><td>Destroy the allocation list pointed to by
+<tt>*alp</tt>.  It must have been previously allocated with a call to
+<tt>dsm_get_allocation_list()</tt>. <tt>*alp</tt> is set to
+<tt>NULL</tt> to indicate that the list is no longer valid.</p>
+</td></tr>
+</table>
+</p>
+
+
+<p><table><tr><td colspan="2"><tt>void dsm_error_message(int s,
+                           char *str);</tt></td></tr>
+       <tr><td>&nbsp;</td>
+           <td>Write a message with format "<tt>string:
+               error message</tt>" to <tt>stderr</tt>.  <tt>s</tt> is
+               the status returned by a DSM service function. The string is
+               provided by the caller in the <tt>str</tt> parameter, and
+               the error message is text describing the error code <tt>s</tt>.
+           </td></tr>
+</table>
+</p>
+
+<h4>structures</h4>
+<p>DSM structures are stored in objects of type <tt>dsm_structure</tt>,
+on which several operations are possible.  See the
+<a href="#sample">sample client program</a> for examples.</p>
+
+<p><table><tr><td colspan="2">
+<tt>int dsm_structure_init(dsm_structure *dsp, char *structname);</tt></td></tr>
+       <tr><td>&nbsp;</td>
+           <td>Initialize the structure object pointed to by
+	   <tt>dsp</tt>, creating an instance of
+	   the structure <tt>structname</tt> (defined in the allocation
+	   file). DSM structures
+	   must be initialized before they can be used.  A DSM structure
+	   may not be used for any structure other than the one for
+	   which is was initialized.
+           </td></tr>
+</table>
+</p>
+
+<p><table><tr><td colspan="2">
+<tt>void dsm_structure_destroy(dsm_structure *dsp);</tt></td></tr>
+       <tr><td>&nbsp;</td>
+           <td>Destroy the previously intialized structure object
+	   pointed to by 
+	   <tt>dsp</tt>.  After it is destroyed, <tt>*dsp</tt> may not be
+	   used for structure operations until it is initialized again
+	   with <tt>dsm_strucure_init()</tt>, which may be
+	   for a different structure name.
+           </td></tr>
+</table>
+</p>
+
+<p><table><tr><td colspan="2">
+<tt>int dsm_structure_get_element(dsm_structure *dsp, char *elname, void
+*buf);<br>
+int dsm_structure_set_element(dsm_structure *dsp, char *elname, void *buf);</tt></td></tr>
+       <tr><td>&nbsp;</td>
+           <td>Get/set element <tt>elname</tt> of the structure pointed
+	   to by 
+	   <tt>dsp</tt>. <tt>*dsp</tt> must have been previously
+	   initialized with <tt>dsm_structure_init()</tt>.  For
+	   <tt>dsm_structure_get_element()</tt> the element value is
+	   written into <tt>buf</tt>, which must point to a space large
+	   enough to hold it.  For <tt>dsm_structure_set_element()</tt>,
+	   the value is copied from <tt>buf</tt> into the structure.
+           </td></tr>
+</table>
+</p>
+
+
+
+<h4>writing</h4>
+<p>
+<table><tr><td colspan="2"><tt>int dsm_write(char *target, char
+                                  *allocname, void *buf);<br>
+int dsm_write_notify(char *target, char *allocname, void
+                                  *buf);</tt></td>
+</tr>
+       <tr><td>&nbsp;</td>
+           <td>Write the value in <tt>buf</tt> into the DSM variable
+               named by <tt>allocname</tt> shared with hostname
+               <tt>target</tt>.  Alternatively, <tt>target</tt> may be
+               the name of a class, in which case the value will be
+               written to all the hostnames in the class.
+               For structures, <tt>buf</tt> must
+               point to a <tt>dsm_structure</tt> that has been
+               initialized as an instance of the structure named by
+               <tt>allocname</tt>. 
+               <tt>dsm_write_notify()</tt> causes processes blocked on
+               <tt>dsm_read_wait()</tt> on <tt>target</tt> to be
+               notified of the change. <tt>dsm_write()</tt> does not
+               cause waiting processes to be notified, while
+               <tt>dsm_write_notify()</tt> does.</td></tr>
+               </table>
+</p>
+
+<h4>reading</h4>
+<table><tr><td colspan="2"><tt>int dsm_read(char *hostname, char
+                                  *allocname, void *buf,
+                                   time_t *timestamp);</tt></td></tr>
+       <tr><td>&nbsp;</td>
+
+           <td>Read the value of the DSM variable named by
+               <tt>allocname</tt> which is shared with host
+               <tt>hostname</tt>.  The value is copied into
+               <tt>buf</tt>.  If <tt>timestamp</tt> is not
+               <tt>NULL</tt>, it is set to the time the requested value
+               was most recently updated.  A timestamp of zero means the
+               value has never been updated. For structures,
+               <tt>buf</tt> must point to a <tt>dsm_structure</tt> that
+               has been initialized as an instance of the structure
+               named by <tt>allocname</tt>.</td></tr>
+               </table>
+</p>
+
+<p>
+<table><tr><td colspan="2"><tt>int dsm_read_wait(char *hostname, 
+char *allocname, void *buf);</tt></td></tr>
+       <tr><td>&nbsp;</td>
+           <td>Wait for one of the DSM variables in the monitor list to
+               change (see <tt>dsm_monitor()</tt>).  When a change
+               occurs, the name of the changed variable will be stored
+               in <tt>allocname</tt> and the name of the host with which
+               the variable is shared will be stored in
+	       <tt>hostname</tt>. For non-structure allocations the new
+	       value will be stored in <tt>buf</tt>.  For structures,
+	       the new value will be stored in the structure that was
+	       provided in the call to <tt>dsm_monitor()</tt> (see entry
+	       for that function, below).  The address of the structure
+	       will be returned in
+	       <tt>buf</tt>.
+	       Changes to the monitor list will not be detected by
+	       <tt>dsm_read_wait()</tt> while it is
+	       blocked. <tt>hostname</tt> and <tt>allocname</tt> must
+	       point to arrays of at least <tt>DSM_NAME_LENGTH</tt> bytes.
+	       <p>
+	       <b>NOTE: It is the responsibility of the caller to ensure
+	       that <tt>buf</tt> points to a space large enough to hold the
+	       largest non-structure value which may be returned, as
+	       specified in the 
+	       monitor list.</b>  For example, if an 8-byte double and a
+	       50-byte string are being monitored, <tt>buf</tt> must point to a
+	       50-byte space.  </td></tr>
+</table>
+</p>
+
+<h4>monitoring</h4>
+<p>
+<table><tr><td colspan="2"><tt>int dsm_monitor(char
+                           *hostname, char *allocname);<br>
+int dsm_monitor(char *hostname, char *allocname, dsm structure
+                           *dsp); /* for monitoring a structure */</tt></td></tr>
+       <tr><td>&nbsp;</td>
+
+           <td>Add to the monitor list the DSM variable
+	   <tt>allocname</tt> shared with host <tt>hostname</tt>.  The
+	   monitor list contains the values to be monitored by the
+	   <tt>dsm_read_wait()</tt> function.  A call to
+	   <tt>dsm_read_wait()</tt> will return when one of the
+	   variables on the monitor list is changed by a call to
+	   <tt>dsm_write_notify()</tt>.  To add a structure to the
+	   monitor list, a third argument must be provided: a pointer to
+	   a <tt>dsm_structure</tt> object initialized as an instance of
+	   structure <tt>allocname</tt>.  If <tt>dsm_read_wait()</tt>
+	   returns due to a change in this structure, the new value will
+	   be stored in the structure pointed to by <tt>dsp</tt>.</td></tr>
+
+</table>
+</p>
+
+<p>
+<table><tr><td colspan="2"><tt>int dsm_no_monitor(char
+                           *hostname, char *allocname);<br>
+int dsm_clear_monitor(void);</tt></td></tr>
+       <tr><td>&nbsp;</td>
+
+           <td>Remove entries from the monitor
+               list. <tt>dsm_no_monitor()</tt> removes the entry for the
+               DSM variable <tt>allocname</tt> shared with host
+               <tt>hostname</tt>. <tt>dsm_clear_monitor()</tt> removes
+               all entries.</td></tr> 
+</table>
+</p>
+
+<h4><a name="returncodes">Return Codes</a></h4>
+<table>
+  <tr><td><tt>DSM_SUCCESS</tt></td><td>&nbsp;&nbsp;</td>
+      <td>The operation succeeded.</td></tr>
+  <tr><td><tt>DSM_ERROR</tt></td><td>&nbsp;&nbsp;</td>
+      <td>An unspecified failure occurred.</td></tr>
+  <tr><td><tt>DSM_UNAVAILABLE</tt></td><td>&nbsp;&nbsp;</td>
+      <td>DSM is not available on this machine (typically due to the
+          absence of the server).</td></tr>
+  <tr><td><tt>DSM_NO_RESOURCE</tt></td><td>&nbsp;&nbsp;</td>
+      <td>DSM could not open its shared memory segment.</td></tr>
+  <tr><td><tt>DSM_ALREADY_OPEN</tt></td><td>&nbsp;&nbsp;</td>
+      <td><tt>dsm_open()</tt> has already been called.</td></tr>
+  <tr><td><tt>DSM_NO_INIT</tt></td><td>&nbsp;&nbsp;</td>
+      <td><tt>dsm_open()</tt> has not been called.</td></tr>
+  <tr><td><tt>DSM_ALLOC_VERS</tt></td><td>&nbsp;&nbsp;</td>
+      <td>There is a mismatch between the allocation table on the local
+          host and one of the remote hosts.</td></tr>
+  <tr><td><tt>DSM_NO_LOCAL_SVC</tt></td><td>&nbsp;&nbsp;</td>
+      <td>There is no connection to the local DSM server.</td></tr>
+  <tr><td><tt>DSM_NO_REMOTE_SVC</tt></td><td>&nbsp;&nbsp;</td>
+      <td>There is no connection to the remote server.</td></tr>
+  <tr><td><tt>DSM_RPC_ERROR</tt></td><td>&nbsp;&nbsp;</td>
+      <td>The RPC transaction failed.</td></tr>
+  <tr><td><tt>DSM_LOCAL_SERVICE</tt></td><td>&nbsp;&nbsp;</td>
+      <td>The service is only available to local clients.</td></tr>
+  <tr><td><tt>DSM_REMOTE_SERVICE</tt></td><td>&nbsp;&nbsp;</td>
+      <td>The service is only available to remote clients.</td></tr>
+  <tr><td><tt>DSM_HOST_INVALID</tt></td><td>&nbsp;&nbsp;</td>
+      <td>The specified hostname is not a host DSM shares with.</td></tr>
+  <tr><td><tt>DSM_NAME_INVALID</tt></td><td>&nbsp;&nbsp;</td>
+      <td>The specified DSM variable name is not valid.</td></tr>
+  <tr><td><tt>DSM_TOO_MANY_PROC</tt></td><td>&nbsp;&nbsp;</td>
+     <td>There are too many other processes waiting for notification.</td></tr>
+  <tr><td><tt>DSM_MON_LIST_EMPTY</tt></td><td>&nbsp;&nbsp;</td>
+      <td>There are no entries in the monitor list.</td></tr>
+  <tr><td><tt>DSM_IN_MON_LIST</tt></td><td>&nbsp;&nbsp;</td>
+      <td>The specified DSM variable is already in the monitor list.</td></tr>
+  <tr><td><tt>DSM_NOT_IN_LIST</tt></td><td>&nbsp;&nbsp;</td>
+      <td>The specified DSM variable is not in the monitor list.</td></tr>
+  <tr><td><tt>DSM_INTERRUPTED</tt></td><td>&nbsp;&nbsp;</td>
+      <td>The operation was interrupted by a signal.</td></tr>
+  <tr><td><tt>DSM_STRUCT_INVALID</tt></td><td>&nbsp;&nbsp;</td>
+      <td>There is a problem with the structure argument.</td></tr>
+  <tr><td><tt>DSM_INTERNAL_ERROR</tt></td><td>&nbsp;&nbsp;</td>
+      <td>An unexpected or inconsistent condition has been detected
+         inside DSM.  Report it to the maintainer.</td></tr>
+</table>
+
+
+<hr><a name="diagnostics"><h2>Diagnostic Facilities</h2></a>
+<p>The DSM server provides diagnostic output for debugging.  It may be
+activated two ways:
+<ul>
+<li>Specify the <tt>-v</tt> switch on the command line, which causes
+diagnostic output to be sent to <tt>stderr</tt>.
+<li>Send <tt>SIGUSR1</tt> to the running process.  This will cause
+debugging output to be written to the file <tt>dsm_log.&lt;time&gt;</tt> where
+<tt>time</tt> is the time the file was opened, in Unix timestamp form.
+Another <tt>SIGUSR1</tt> stops the output and closes the file. 
+If the server was started with the <tt>-v</tt> switch, then
+<tt>SIGUSR1</tt> toggles diagnostic output off/on to <tt>stderr</tt>.
+</ul>
+<b>NOTE:</b> Activating diagnostic output severely degrades the
+performance of the server, and should only be used for controlled debugging.
+</p>
+<p>The DSM package includes a suite of test programs in the
+<tt>test/</tt> directory, with executables in architecture-specific
+directories below that.  These programs are for engineering tests and
+debugging. Many of them, when run with no arguments, provide a usage
+summary.  They are poorly written, even more poorly documented, and
+potentially dangerous to DSM.  Casual use is not recommended.  
+</p>
+<table border=1 cellspacing=0 cellpadding=4>
+<tr><td>Program</td><td>Description</td></tr>
+<tr><td><tt>read</tt></td>
+    <td>read a value from DSM</td></tr>
+<tr><td><tt>read_wait</tt></td>
+    <td>wait for a DSM value to change</td></tr>
+<tr><td><tt>write</tt></td>
+    <td>write a value to DSM</td></tr>
+<tr><td><tt>get_alloc_list</tt></td>
+    <td>get the complete allocation list from the server</td></tr>
+<tr><td><tt>listshm</tt></td>
+    <td>print the contents of the shared memory segment used by the DSM
+    server and its clients</td></tr>
+<tr><td><tt>unlinkshm</tt></td>
+    <td>destroy the shared memory segment used by the DSM server and its
+    clients</td></tr>
+<tr><td><tt>pound<br>
+            poundsend<br>
+            poundrec</tt></td>
+    <td>torture-test the DSM server</td></tr>
+<tr><td><tt>latency</tt></td><td>measure DSM client function execution
+times</td></tr>
+</table>
+
+<hr><a name="sample"><h2>Sample program</h2></a>
+
+This program demonstrates DSM usage.  It could be built with the
+command
+<pre>
+LINUX:
+gcc -I$GLOBALINC -L$COMMONLIB -o dsm_sample dsm_sample.c -ldsm -lpthread -lrt
+
+LYNXOS:
+gcc -I$GLOBALINC -L$COMMONLIB -o dsm_sample dsm_sample.c -ldsm -lrpc -lnetinet
+
+/*****************************************************************************/
+#include &lt;stdio.h&gt;
+#include &lt;time.h&gt;
+#include &lt;dsm.h&gt;
+
+int main(void) {
+  dsm_structure ds;
+
+  struct dsm_allocation_list *dal;
+  int nhosts;
+
+  char string[100],hostname[DSM_NAME_LENGTH],allocname[DSM_NAME_LENGTH];
+  int i,j,s;
+
+  time_t timestamp;
+
+  /* begin operations */
+  s = dsm_open();
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_open()");
+    exit(1);
+  }
+
+  /* print allocation list */
+  s = dsm_get_allocation_list(&nhosts, &dal);
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_get_allocation_list()");
+    exit(1);
+  }
+  for(i=0; i&lt;nhosts; i++) {
+    printf("\nSharing %d entries with host %s:\n",
+           dal[i].n_entries, dal[i].host_name);
+    for(j=0; j&lt;dal[i].n_entries; j++)
+      printf("  %s\n", dal[i].alloc_list[j]);
+  }
+
+  /* free allocation list memory */
+  dsm_destroy_allocation_list(&dal);
+
+  /* write a value to a host or a class; write with notify */
+  /*                                                       */
+  /* assume there is a class definition like               */
+  /* class MONITOR hal9000,obscon                          */
+  i = 0x1827;
+  s = dsm_write("hal9000", "DSM_SHORT_S", &i);
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_write()");
+    exit(1);
+  }
+
+  s = dsm_write("MONITOR", "DSM_SHORT_S", &i); /* writes to both hal900 and obscon */
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_write()");
+    exit(1);
+  }
+
+  i = 0x7281;
+  s = dsm_write_notify("hal9000", "DSM_SHORT_S", &i);
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_write_notify()");
+    exit(1);
+  }
+
+
+
+  /* read a value */
+  s = dsm_read("hal9000", "DSM_STR_C100", string, &timestamp);
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_read()");
+    exit(1);
+  }
+  printf("hal9000:DSM_STR_C100 = %s at %ld\n", string, timestamp);
+
+  
+  /* wait for a value to change */
+  s = dsm_monitor("hal9000", "DSM_SHORT_S");
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_monitor()");
+    exit(1);
+  }
+  s = dsm_read_wait(hostname, allocname, &i);
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_read_wait()");
+    exit(1);
+  }
+  printf("Received %s=%d from host %s\n", allocname, i, hostname);
+
+
+  /**************/  
+  /* structures */
+  /**************/  
+  s = dsm_structure_init(&ds, "DSM_TEST_1_X");
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_structure_init()");
+    exit(1);
+  }
+
+  /* write a value */
+  s = dsm_structure_set_element(&ds, "FIELD3_C20", string);
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_set_element()");
+    exit(1);
+  }
+
+  s = dsm_write("hal9000", "DSM_TEST_1_X", &ds);
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_write()");
+    exit(1);
+  }
+
+  /* read a value */
+  s = dsm_read("hal9000", "DSM_TEST_1_X", &ds, &timestamp);
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_read()");
+    exit(1);
+  }
+
+  s = dsm_structure_get_element(&ds, "FIELD2_L", &i);
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_get_element()");
+    exit(1);
+  }
+  printf("element DSM_TEST_1_X:FIELD2_L from hal9000 = %d at %ld\n", i, timestamp);
+
+  /* wait for a change */
+  s = dsm_clear_monitor();
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_clear_monitor()");
+    exit(1);
+  }
+
+  s = dsm_monitor("hal9000", "DSM_TEST_1_X", &ds);
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_monitor()");
+    exit(1);
+  }
+
+  s = dsm_read_wait(hostname, allocname, NULL);
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_read_wait()");
+    exit(1);
+  }
+  printf("Received %s from host %s\n", allocname, hostname);
+
+  /* done with structure */
+  dsm_structure_destroy(&ds);
+
+  /* end operations */
+  s = dsm_close();
+  if(s!=DSM_SUCCESS) {
+    dsm_error_message(s, "dsm_close()");
+    exit(1);
+  }
+
+  return(0);
+}
+</pre>
+</body>
+</html>

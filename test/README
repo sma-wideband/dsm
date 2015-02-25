@@ -1,0 +1,9 @@
+These programs are meant for testing and debugging dsm.  They are
+poorly-written, even more poorly documented, and potentially dangerous.
+If you run them without knowing what you are doing, you could really
+mess up dsm.
+
+They should build and work on any of the platforms where dsm runs.
+
+$Id: README,v 2.1 2006/02/09 14:48:49 ckatz Exp $
+

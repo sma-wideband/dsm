@@ -1,0 +1,1382 @@
+###########################################################################
+# Define memory allocation and machine classes for distributed shared
+# memory
+###########################################################################
+# $Id: dsm_allocation,v 2.19 2012/05/16 14:15:33 rtm Exp $
+###########################################################################
+#
+# To make changes, edit this file, then say "make allocation".
+# The dsm servers then must all be restarted.
+#
+###########################################################################
+#
+# This file has two sections, CLASS definitions and SHARE definitions.
+# The CLASS directive defines a set of computers which will participate
+# in data sharing.  The SHARE directive takes two CLASS names as
+# arguments, and defines shared spaces between them.  Following a SHARE
+# directive is the list of allocations to be shared.
+#
+# This is best illustrated by an example:
+#
+#   class  CL1  host1, host2
+#   class  CL2  host3, host4
+#
+#   share CL1 CL2
+#      DSM_VAR1_D
+#      DSM_VAR2_D
+#
+# Here two classes are defined: CL1, which contains two hostnames
+# host1 and host2, and CL2, containing host3 and host4.  Then shared
+# spaces are defined between these two classes, containing two variables
+# DSM_VAR1_D and DSM_VAR2_D.   The net result of these definitions is
+# four independent shared spaces, each containing a variable named
+# DSM_VAR1_D and one named DSM_VAR2_D.  The four spaces are
+#
+#      host1 - host3
+#      host1 - host4
+#      host2 - host3
+#      host2 - host4
+#
+# It is important to note that these four spaces are independent;
+# e.g. changing the value of the host1-host3 copy of DSM_VAR1_D changes
+# it only in that copy (on both host1 and host3).  The variables
+# DSM_VAR1_D in the host1-host4 space and in the host2-host3 space are
+# unaffected. 
+#
+###########################################################################
+# Allocations follow a naming convention which includes
+# several "fields":
+#
+# DSM_class_name1_..._type   or   DSM_class_name1_..._Vm_..._type
+#
+# class is the dsm machine class as defined above
+# name1 is a descriptive name (may contain additional underscores)
+# type is a code describing the data type:
+#    B  = integer, 8 bit                (1 byte)
+#    S  = integer, 16 bit               (2 bytes)
+#    L  = integer, 32 bit               (4 bytes)
+#    F  = IEEE floating point, 32 bit   (4 bytes)
+#    D  = IEEE floating point, 64 bit   (8 bytes)
+#    Cn = character array (string) of length n
+#    X  = structure (see below)
+# The code (except X) may be preceded by one or more sequences of type
+# "Vm" to specify a vector.
+#
+# Examples:
+#  DSM_CRATE_VAL1_F          : a 4-byte float shared with machines in
+#                              class CRATE 
+#
+#  DSM_HAL_FILE_NAME_C50     : a 50 character string shared with machines in
+#                              class HAL
+#
+#  DSM_DDS_DATA_V10_S        : an array of 10 16-bit integers shared with
+#                              machines in class DDS
+#
+#  DSM_MRG_FDATA_V128_V128_D : a 128x128 array of 64-bit floating point
+#                              values shared with machines in class MRG
+#
+#  DSM_STORAGE_DATA_X        : a structure (defined elsewhere)
+#                              containing multiple fields
+# Names may not be longer than DSM_NAME_LENGTH characters, 
+# as defined in dsm.h.
+#
+# Names are case-sensitive.  "DSM" at the beginning is suggested, but
+# not required.
+#
+# DSM structures are composite allocations defined independently.  A
+# structure definition begins with a "structure NAME" declaration which
+# defines the name of the structure (must end in "X").  Following that
+# are the field definitions, which may be any valid DSM allocation type
+# except structures. Finally a structure definition ends with the
+# "end_structure" tag.
+#
+# Example: 
+#   structure DSM_STORAGE_DATA_X
+#     FLAG_B
+#     TIMESTAMP_L
+#     DATA_CUBE_V12_V24_V6_F
+#     COUNT_S
+#     LABEL_C64
+#   end_structure
+#
+###########################################################################
+
+
+#########################################################
+# class definitions
+
+class OBS obscon
+class CORCAWN corcon
+class DDS newdds
+class HAL hal9000
+class C1DC m5
+class MRG m5
+class MONITOR colossus
+class PHASE phasemon
+class CORRPLOTTER obscon
+
+# Class CURSESMONITOR is used for variables that are only for
+# display
+class CURSESMONITOR hal9000, obscon
+
+# Class HALANDMONIT is used for variables that are displayed
+# and also used for computations on hal
+class HALANDMONITOR hal9000, obscon
+
+class DATACATCHER m5, hcn
+class STORAGE m5, hcn
+class M5ANDMONITOR m5, obscon, hal9000, hcn
+class ACC   acc1, acc2, acc3, acc4, acc5, acc6, acc7, acc8
+class CRATE crate1, crate2, crate3, crate4, crate5, crate6, \
+            crate7, crate8, crate9, crate10, crate11, crate12
+# SWARM class: the ROACH2 boards that are
+#     part of the new digital backend
+class SWARM roach2-01, roach2-02, roach2-03, roach2-04, \
+            roach2-05, roach2-06, roach2-07, roach2-08
+
+class HAS_AN_IRIG_CARD newdds, hal9000, colossus, \
+             crate1, crate2, crate3, crate4, crate5, crate6, \
+             crate7, crate8, crate9, crate10, crate11, crate12
+class SUMMIT_PPC acc1, acc2, acc3, acc4, acc5, acc6, acc7, acc8, \
+             crate1, crate2, crate3, crate4, crate5, crate6, \
+             crate7, crate8, crate9, crate10, crate11, crate12, \
+             m5, newdds, hal9000, corcon, colossus
+class SUMMIT acc1, acc2, acc3, acc4, acc5, acc6, acc7, acc8, \
+             crate1, crate2, crate3, crate4, crate5, crate6, \
+             crate7, crate8, crate9, crate10, crate11, crate12, \
+             m5, newdds, hal9000, corcon, colossus, phasemon, obscon, hcn, \
+             roach2-01, roach2-02, roach2-03, roach2-04, \
+             roach2-05, roach2-06, roach2-07, roach2-08
+
+# SWARM monitor class: basically read-only
+class SWARM_MONITOR obscon, tenzing
+
+class TENZ tenzing
+
+# SWARM monitor class plus hal: basically read-only
+class SWARM_MONITOR_AND_HAL obscon, tenzing, hal9000
+
+# SWARM control class: basically write-only
+class SWARM_CONTROL newdds, obscon, tenzing
+
+#########################################################
+# structure definitions
+ 
+structure DSM_IWATCH_DATA_X
+  VLL1_S                 # Voltage Line to Line Phase A
+  VLL2_S                 # Voltage Line to Line Phase B
+  VLL3_S                 # Voltage Line to Line Phase C
+  VLN1_S                 # Voltage Line to Neutral Phase A
+  VLN2_S                 # Voltage Line to Neutral Phase B
+  VLN3_S                 # Voltage Line to Neutral Phase C
+  FREQUENCY_F            # Generator Frquency
+  CURRENTL1_F            # current Phase A
+  CURRENTL2_F            # current Phase B
+  CURRENTL3_F            # current Phase C
+  POWER_FACTOR_F         # Power Factor
+  KILOWATTS_S            # Kilowatts 
+  KVA_F                  # Volt-Amps
+  KILOVARS_F             # Volt-Amps Reactive
+  BATTERY_VOLTAGE_F      # Battery Voltage
+  COOLANT_TEMPERATURE_F  # Temperature of Coolant
+  ENGINE_DATA_S          # Engine speed RPM
+  ENGINE_STARTS_S        # Number of Engine starts
+  ENGINE_RUNTIME_S       # Total run time
+  OIL_PRESSURE_F         # Engine oil pressure
+  OIL_TEMPERATURE_F      # Engine oil temperatrue
+  TOTAL_WATT_HOURS_S     # Total Watt Hours (MWhr)
+  SERVER_TIMESTAMP_L     # Unix time stamp
+end_structure 
+
+structure LAST_SCAN_VISIBILITES_X
+  AMP_V11_V11_V2_F     # Amplitude measurement of most recent scan
+  PHASE_V11_V11_V2_F   # Phase measurement of most recent scan
+  CORR_V11_V11_V2_F    # Coherence of most recent scan
+  AMP_H_V11_V11_V2_F   # Amplitude measurement of most recent scan (high freq. Rx)
+  PHASE_H_V11_V11_V2_F # Phase measurement of most recent scan (high freq. Rx)
+  CORR_H_V11_V11_V2_F  # Coherence of most recent scan (high freq. Rx)
+  SCAN_TSYS_V11_V2_F   # Tsys averaged over a scan [antenna][IF]
+end_structure
+
+structure LAST_SCAN_EFFICIENCIES_X
+  IF1_EFFICIENCY_V11_F # Interferometric efficiency measured through IF 1
+  IF2_EFFICIENCY_V11_F # Interferometric efficiency measured through IF 2
+end_structure
+
+structure FROM_DATACATCHER_X
+  FILE_NAME_C80        # Name of data file
+  SCAN_SOURCE_C24      # Name of source on most recent scan
+  ANT_STATUS_V11_L     # Weight to be given to most recent scan
+  SCAN_TIME_L          # Midpoint time of most recent scan
+  SCAN_CORNUM_L        # Correlator based number of most recent scan
+end_structure
+
+structure C1DC_STATUS_X
+  INPUTS_V3_V9_S            # Inputs to the C1DCs [Rx][Ant]
+  OP_POWER_V3_V9_F          # Optical fiber power testpoint
+  OP_ALARM_V3_V9_S          # Optical alarm bit
+  IF_CNTR_VOLT_V3_V9_F      # Attenuator control voltage
+  IF_POWER_V3_V9_F          # C1DC power level testpoint
+  IF_POWER_RMS_V3_V9_F      # RMS for antennas and receivers in use
+  N_ADJUSTMENTS_V3_V9_L     # Number of servo loop adjustments since setIFLevels
+  PS_FLAGS_V8_L             # Flag bits for C2DC power supplies
+end_structure
+
+structure SMA_METEOROLOGY_X
+  TEMP_F             # Temperature C
+  HUMIDITY_F         # Relative Humidity (%)
+  MBAR_F             # Pressure mbar
+  WINDSPEED_F        # Wind speed mph
+  WINDDIR_F          # Wind direction in degrees
+  SERVER_TIMESTAMP_L # the timestamp of the data according to the Crackintosh
+  SOLAR_TEMP_F       # thermometer in the Sun (C)
+  RAINFALL_F         # the precipitation accumulated so far this day (mm)
+  LIGHTNING_F        # the number of strikes recorded this minute
+end_structure
+
+structure DSM_MICRODUST_X
+  MAX_DUST_F         # The Maximum particulate concentration in the last 60 seconds (mg/m^3)
+  AVG_DUST_F         # The Average particulate concentration in the last 60 seconds (mg/m^3)
+  DUST_F             # The Instantaneous particulate concentration taken at 60 s interval (mg/m^3)
+  SERVER_TIMESTAMP_L # the timestamp of the data
+end_structure
+
+structure JCMT_METEOROLOGY_X
+  TEMP_F             # Temperature C
+  HUMIDITY_F         # Relative Humidity (%)
+  MBAR_F             # Pressure mbar
+  WINDSPEED_F        # Wind speed mph
+  WINDDIR_F          # Wind direction in degrees
+  SERVER_TIMESTAMP_L # the timestamp of the data according to the Crackintosh
+end_structure
+
+structure CSO_METEOROLOGY_X
+  TEMP_F             # Temperature C
+  HUMIDITY_F         # Relative Humidity (%)
+  MBAR_F             # Pressure mbar
+  WINDSPEED_F        # Wind speed mph
+  WINDDIR_F          # Wind direction in degrees
+  SERVER_TIMESTAMP_L # the timestamp of the data according to the Crackintosh
+end_structure
+
+structure SUBARU_METEOROLOGY_X
+  TEMP_F             # Temperature C
+  HUMIDITY_F         # Relative Humidity (%)
+  MBAR_F             # Pressure mbar
+  WINDSPEED_F        # Wind speed mph
+  WINDDIR_F          # Wind direction in degrees
+  SERVER_TIMESTAMP_L # the timestamp of the data according to the Crackintosh
+end_structure
+
+structure CFHT_METEOROLOGY_X
+  TEMP_F             # Temperature C
+  HUMIDITY_F         # Relative Humidity (%)
+  MBAR_F             # Pressure mbar
+  WINDSPEED_F        # Wind speed mph
+  WINDDIR_F          # Wind direction in degrees
+  SERVER_TIMESTAMP_L # the timestamp of the data according to the Crackintosh
+end_structure
+
+structure UKIRT_METEOROLOGY_X
+  TEMP_F             # Temperature C
+  HUMIDITY_F         # Relative Humidity (%)
+  MBAR_F             # Pressure mbar
+  WINDSPEED_F        # Wind speed mph
+  WINDDIR_F          # Wind direction in degrees
+  SERVER_TIMESTAMP_L # the timestamp of the data according to the Crackintosh
+end_structure
+
+structure UH88_METEOROLOGY_X
+  TEMP_F             # Temperature C
+  HUMIDITY_F         # Relative Humidity (%)
+  MBAR_F             # Pressure mbar
+  WINDSPEED_F        # Wind speed mph
+  WINDDIR_F          # Wind direction in degrees
+  SERVER_TIMESTAMP_L # the timestamp of the data according to the Crackintosh
+end_structure
+
+structure IRTF_METEOROLOGY_X
+  TEMP_F             # Temperature C
+  HUMIDITY_F         # Relative Humidity (%)
+  MBAR_F             # Pressure mbar
+  WINDSPEED_F        # Wind speed mph
+  WINDDIR_F          # Wind direction in degrees
+  SERVER_TIMESTAMP_L # the timestamp of the data according to the Crackintosh
+end_structure
+
+structure VLBA_METEOROLOGY_X
+  TEMP_F             # Temperature C
+  HUMIDITY_F         # Relative Humidity (%)
+  MBAR_F             # Pressure mbar
+  WINDSPEED_F        # Wind speed mph
+  WINDDIR_F          # Wind direction in degrees
+  SERVER_TIMESTAMP_L # the timestamp of the data according to the Crackintosh
+end_structure
+
+structure KECK_METEOROLOGY_X
+  TEMP_F             # Temperature C
+  HUMIDITY_F         # Relative Humidity (%)
+  MBAR_F             # Pressure mbar
+  WINDSPEED_F        # Wind speed mph
+  WINDDIR_F          # Wind direction in degrees
+  SERVER_TIMESTAMP_L # the timestamp of the data according to the Crackintosh
+end_structure
+
+structure STATUS_SERVER_TO_DDS_X
+  APPARENT_RA_D  # Right ascension from array reference position
+  APPARENT_DEC_D # Declination from array reference position
+  CATALOG_RA_D   # Unprecessed right ascension
+  CATALOG_DEC_D  # Unprecessed declination
+  PADS_V11_B     # Which pad is each antenna on?
+end_structure
+
+structure DDS_TO_HAL_X
+  REFLONG_D              # Array Ref. Pos. Longitude (radians)
+  REFLAT_D               # Array Ref. Pos. Latitude (radians)
+  REFRAD_D               # Array Ref. Pos. radius vector (meters)
+  U_V11_D                # u coordinate, for antennas 1..10: 0 not used
+  V_V11_D                # v coordinate (meters)
+  W_V11_D                # w coordinate
+  X_V11_D                # X antenna position relative to Array Ref. Pos.
+  Y_V11_D                # Y position (meters)
+  Z_V11_D                # Z position
+  FIXED_V11_V2_D         # Antenna fixed delays (seconds)
+  DEL_V11_D              # Current antenna geometric delays (seconds)
+  ATM_V11_V2_D           # Atmospheric delays (radians)
+  SV_V3_D                # Source vector
+  DAYFRAC_D              # Day fraction (days)
+  UT1MUTC_D              # UT1-UTC (radians!)
+  LST_D                  # LST (radians)
+  HA_D                   # Hour Angle (radians)
+  RA_D                   # Right Ascension (radians)
+  DEC_D                  # Declination (radians)
+  GUNN_V3_S              # Gunn multiple, two receivers, element 0 not used
+  FREQ_V3_D              # Tracking frequency, Hz (two receivers)
+  FR_V3_V11_D            # Fringe rate on receiver n, antenna m (Hz)
+  P_DRY_D                # Dry air pressure in mbar
+  P_WATER_D              # Water vapor partial presure in mbar
+  T_ATM_D                # Atmospheric temperature in K
+  N_D                    # 10e6*(n-1) n = refractive index of air
+  REAL_WEATHER_S         # True if live weather is being used by DDS
+  IRIG_STATUS_S          # Status of the IRIG-B synchronized clock
+  WALSH_MOD_V11_V2_S     # Walsh function assignments (DDS modulation)
+  WALSH_DEMOD_V11_V2_S   # Walsh function assignments (DSP demodulation)
+end_structure
+
+structure CRATE_TO_HAL_X
+  SCAN_NO_L               # Current scan number
+  SET_SCAN_NO_L           # Scan number within current set
+  SCAN_TIME_D             # Length of current scan in seconds so far
+  SCAN_LENGTH_D           # Total length of current scan in seconds
+  SET_LENGTH_L            # Total number of scans in current set
+  PLOT_SERVER_C40         # Name of plot server
+  PLOT_ERRORS_L           # Number of errors sending to plot server
+  PLOT_TIME_D             # Number of seconds to plot last scan
+  IDL_SERVER_C40          # Name of IDL storage server
+  IDL_ERRORS_L            # Number of errors communicating with mir/idl server
+  IDL_TIME_D              # Number of seconds to store last scan in IDL
+  DEBUG_SERVER_C80        # Name of debugging server computer
+  DEBUG_ERRORS_L          # Number of errors communicating with debug server
+  DEBUG_TIME_D            # Number of seconds to store last scan to debug
+  PPC_TEMP_D              # Temperature of PPC processor
+  CB_STATUS_V9_S          # Status of each correlator board
+  MODE_S                  # 0 = autocorrelation, 1 = crosscorrelation
+  BSLN_V9_V2_S            # Array listing which baselines are on which CBs
+  CNTR_ERR_V9_L           # Number of count mismatch errors on each CB
+  RB_STATUS_V9_S          # Status of each receiver board
+  STAT_ERRORS_V9_L        # Count of inconsistant state counter errors
+  HOUR_ANGLE_D            # Hour Angle used in C2DC rate calculations
+  C2DC_RATES_V3_V9_V2_D   # Secondary phase rotator rates
+  RB_MAPPING_V9_S         # Which antenna is connected to each RB
+  STATS_OK_V3_V5_V9_S     # 0 = C2DC stats bad, 1 = STATS good.
+  C2DC_ATTN_V5_V9_V2_D    # C2DC attenuator settings
+  C2DC_CNTS_V4_V5_V9_V2_F # Sampler statistics
+  CHIPSPERCHUNK_V4_V2_S   # Number of chips / chunk for each chunk of
+                          # each Rx
+  RB_LOCK_V9_V2_S         # RB lock status
+  DEL_V9_V2_S             # RB delay
+  PMTR_V9_V2_S            # RB Permuter value
+  IRIG_STATUS_S           # Status of IRIG-B clock
+  STORAGE_STATUS_S        # status of communication with storage servers
+  DC_DATA_ERRORS_L        # Number of DC data errors detected and fixed
+  C2DC_PWR_V5_V9_V2_F     # C2DC power detector readings
+end_structure
+
+structure CORR_CRATE_PS_STATUS_X
+  # these are status bits read back from the correlator crate power
+  # supply monitor boards; they come from a "struct crate_power_mon"
+  # (defined in $CORCONAPP/drivers/crate_power_mon/crate_power_mon.h);
+  # they're numbered 1-12 in unit offset arrays
+  # 0=bad, 1=ok
+  MISC_POS12_OK_V13_B   # misc +12V supply status for 12 crates
+  MISC_NEG12_OK_V13_B   # misc -12V supply status for 12 crates
+  MISC_POS5_OK_V13_B    # misc +5V  supply status for 12 crates
+  MISC_NEG5_OK_V13_B    # misc +5V  supply status for 12 crates
+  CB_M1_POS5_OK_V13_B   # cb m1 +5V supply status for 12 crates
+  CB_M2_POS5_OK_V13_B   # cb m2 +5V supply status for 12 crates
+
+  AC_OK_V13_B    # AC power status for 12 crates
+  POWER_OK_V13_B # global power status for 12 crates
+  TEMP_OK_V13_B  # temperature status for 12 crates
+
+  # outputs set by corr_monitor; readback values here
+  ENABLE_V13_B     # enable bit for 12 crates
+  CORCON_HB_V13_B  # misc +12V supply status for 12 crates
+  MONITOR_HB_V13_B # misc +12V supply status for 12 crates
+end_structure
+
+structure CORR_ARACK_PS_STATUS_X
+  # all arrays are unit offset: there are 3 I7050D modules and 13 analog
+  # racks 
+  I7050D_RESET_STATUS_V4_B   # whether module reset occurred
+  I7050D_HOST_WDOG_STAT_V4_B # whether host watchdog timeout occurred
+
+  ARACK_POWER_CTRL_V14_B     # how we've set analog rack outputs
+  ARACK_POWER_STAT_V14_B     # readback of analog rack power status
+
+  ARACK_UPS12_CTRL_B         # how we've set our control of UPS in arack 12
+  ARACK_UPS13_CTRL_B         # how we've set our control of UPS in arack 13
+end_structure
+
+structure CORR_PACU_STATUS_X
+  # correlator room PACU status; values come out of a "struct ac_status"
+  # (defined in $CORCONAPP/corr_monitor/pacu_monitor.h)
+
+  TIME_LAST_READ_L                  # Unix timestamp of last readout
+
+  DIGITAL_ROOM_FLOW_F               # 0 to about 600 CFM
+  DIGITAL_ROOM_VENT_F               # 0 to 100% open
+  DIGITAL_ROOM_DUCT_HEATER_F        # 4mA=0watts to 20.0mA=maximum
+
+  ANALOG_ROOM_FLOW_F                # 0 to about 600 CFM
+  ANALOG_ROOM_VENT_F                # 0 to 100% open
+  ANALOG_ROOM_DUCT_HEATER_F         # 4mA=0watts to 20.0mA=maximum
+
+  # digital racks are numbered 1-8; these are unit offset arrays
+  DIGITAL_RACK_CONTROLLED_V9_B      # 1=controlled, 0=not controlled
+  DIGITAL_RACK_AIRFLOW_SWITCH_V9_B  # 1=on, 0=off
+  DIGITAL_RACK_SMOKE_V9_B           # 1=smoke, 0=no smoke
+  DIGITAL_RACK_RETURN_AIR_TEMP_V9_F # degrees F
+  DIGITAL_RACK_VENT_SETTING_V9_F    # 0 to 100% open
+
+  # analog racks are numbered 1-13; these are unit offset arrays
+  ANALOG_RACK_CONTROLLED_V14_B      # 1=controlled, 0=not controlled
+  ANALOG_RACK_AIRFLOW_SWITCH_V14_B  # 1=on, 0=off
+  ANALOG_RACK_SMOKE_V14_B           # 1=smoke, 0=no smoke
+  ANALOG_RACK_RETURN_AIR_TEMP_V14_F # degrees F
+  ANALOG_RACK_VENT_SETTING_V14_F    # 0 to 100% open
+
+  # air filters are numbered 1-3; these are unit offset arrays
+  AIR_FILTER_DIRTY_V4_B             # 1=dirty, 0=clean
+
+  # supply side variables
+  SUPPLY_FAN_ENABLE_B               # 1=start, 0=off
+  SUPPLY_FAN_STARTED_B              # 1=true, 0=false
+  SUPPLY_DUCT_SMOKE_B               # 1=smoke, 0=no smoke
+  SUPPLY_FAN_SPEED_F                # 4.0 to 20.0mA
+  SUPPLY_FAN_FLOW_F                 # 0 to 16,000 CFM
+  SF_DUCT_STATIC_PRES_1_F           # inches H2O
+  SF_DUCT_STATIC_PRES_2_F           # inches H2O
+  SUPPLY_DUCT_PRESSURE_ALARM_B # 0=ok, 1=alarm
+
+  # return side variables
+  RETURN_FAN_ENABLE_B               # 1=start, 0=off
+  RETURN_FAN_STARTED_B              # 1=true, 0=false
+  RETURN_DUCT_SMOKE_B               # 1=smoke, 0=no smoke
+  RETURN_FAN_SPEED_F                # 4.0 to 20.0mA
+  RETURN_FAN_FLOW_F                 # 0 to 16,000 CFM
+  
+  # compressors
+  COMPRESSOR_1_STAGE_A_B            # 1=on, 0=off
+  COMPRESSOR_1_STAGE_B_B            # 1=on, 0=off
+  COMPRESSOR_2_STAGE_A_B            # 1=on, 0=off
+  COMPRESSOR_2_STAGE_B_B            # 1=on, 0=off
+  COMPRESSOR_1_HG_BYPASS_F          # hot gas bypass, 4.0 to 20.0mA
+  COMPRESSOR_2_HG_BYPASS_F          # hot gas bypass, 4.0 to 20.0mA
+  COMPRESSOR_1_ALARM_B              # 0=ok, 1=alarm
+  COMPRESSOR_2_ALARM_B              # 0=ok, 1=alarm
+  
+  # condensers
+  CONDENSER_1_ALARM_B               # 0=ok, 1=alarm
+  CONDENSER_2_ALARM_B               # 0=ok, 1=alarm
+  VFD_BYPASS_B;                     # 0=not bypassed, 1=bypassed
+  FREEZE_STAT_ALARM_B               # 0=ok, 1=alarm
+
+  # other temperatures (degrees F)
+  SUPPLY_AIR_TEMP_F
+  DX_LEAVING_AIR_TEMP_F
+  MIXED_AIR_TEMP_F
+  RETURN_AIR_TEMP_F
+  OUTSIDE_AIR_TEMP_F
+
+  # relative humidities (0 to 100%)
+  SUPPLY_AIR_REL_HUM_F
+  RETURN_AIR_REL_HUM_F
+  OUTSIDE_AIR_REL_HUM_F
+
+  # misc
+  DUCT_HEATER_CTRL_F                # 4mA(=0 watts) to 20.0mA(=maximum watts)
+  OUTSIDE_AIR_VENTS_F               # (economizer) 0-100% open
+end_structure
+
+structure PACU_INST_POWER_X
+  VAB_S # Voltage from phase A to B (Vrms)
+  VAC_S
+  VBC_S
+  IA_S  # Phase A current (Arms)
+  IB_S
+  IC_S
+  W_S   # Total Watts
+  PF_S  # Power factor (0.1%)
+end_structure
+
+structure PACU_POWER_STATS_X
+  AVG_VAB_S
+  AVG_VAC_S
+  AVG_VBC_S
+  AVG_IA_S
+  AVG_IB_S
+  AVG_IC_S
+  AVG_W_S
+  AVG_PF_S
+  MAX_VAB_S
+  MAX_VAC_S
+  MAX_VBC_S
+  MAX_IA_S
+  MAX_IB_S
+  MAX_IC_S
+  MAX_W_S
+  MAX_PF_S
+  MIN_VAB_S
+  MIN_VAC_S
+  MIN_VBC_S
+  MIN_IA_S
+  MIN_IB_S
+  MIN_IC_S
+  MIN_W_S
+  MIN_PF_S
+  WH_L              # Watt-hours since the last reset of the meter
+  RESET_TIMESTAMP_L # Timestamp when last reset seen
+end_structure
+
+structure MRG_CONTROL_X
+  COMB_V2_S                  # Comb setting (6, 7 or 8)
+  OFFSET_SYNTH_V2_D          # Offset synthesizer setting
+  REQ_FREQ_V2_D              # Requested MRG frequency
+  SB_V2_S                    # YIG lock sideband (-1 or 1)
+  CNTRL_VOLTAGE_V2_F         # YIG coarse tuning control voltage
+  QUAD_V2_F                  # YIG PLL quadrature voltage
+  STRESS_V2_F                # YIG PLL stress voltage
+  LEVEL_V2_F                 # YIG PLL Level voltage
+  LEVEL_CNTRL_V2_F           # YIG PLL Level control voltage
+  CMD_TIME_V2_L              # Unix time of MRG frequency last change
+  LAST_TWEEK_V2_L            # Unix time when coarse tuning adjusted
+  YIG_LOCKED_V2_S            # Flag for locked YIG
+  N_TWEEKS_V2_S              # Number of voltage tweeks since locked
+end_structure
+
+structure MRG_STATUS_X
+  10MHZ_TO_OFFSETS_S         # Test point for 10 MHz signal to offset synths.
+  10MHZ_TO_2ND_LO_S          # Test point for 10 MHz signal to 2nd LOs
+  10MHZ_TO_1ST_LO_V2_S       # Test point for 10 MHz signal to 1st LOs
+  10MHZ_TO_2ND_LO_SYNTH_V4_S # Test point for 10 MHz signal to 2nd LO Synthesizer
+  1GHZ_PRESENT_S             # Test point for 1 GHz signal
+  200MHZ_PRESENT_S           # Test point for 200 MHz power
+  100MHZ_PRESENT_PREPLL_S    # Test point for 100 MHz power before PLL
+  100MHZ_PRESENT_POSTPLL_S   # Test point for 100 MHz power after PLL
+  100MHZ_PLL_LOCK_S          # Phase lock for 100 MHz PLL
+  REF_STATUS_S               # AND of status bits from 100->1000 MHz box
+  FO_XMITER_S                # Fiber optics transmitter test point
+  LOW_POWER_S                # Low power Alarm
+  OVER_TEMPERATURE_ALARM_S   # Over temperature alarm
+  10MHZ_4WAY_V4_S            # 4-way distribution tests points
+  1ST_LO_REF_V4_S            # 10 MHz 1st LO reference test points
+  52MHZ_PRESENT_S            # Presence of 52 MHz signal
+  52MHZ_LOCK_S               # Lock indicator for 52 MHz signal                 
+end_structure
+
+structure SMAINIT_REPORT_X
+  PRG_NAMES_V24_C24
+  PRG_STATUS_V24_V6_L
+end_structure
+
+structure GPSD_REPORT_X
+  GPS8_STATUS_B
+  GPS8_NUM_POS_SAMPLES_B
+  GPS8_POS_AVG_MODE_B
+  GPS8_OUT_STATUS_B
+  GPS8_CTL_STATUS_B
+  GPS8_OP_MODE_B
+  GPS8_POS_STATUS_B
+  GPS8_PHASE_FREQ_STATUS_B
+  GPS8_PLL_CONSTRAINT_B
+  GPS8_GPS_MINUS_UTC_B
+  GPS8_BAD_MSGS_B
+  GPS8_SATS_V12_V4_B
+  GPS8_LAT_D
+  GPS8_LON_D
+  GPS8_ALT_F
+  GPS8_DOP_F
+  GPS8_AVG_PHASE_F
+  GPS8_FREQ_CTLR_VALUE_F
+  GPS8_LAST_FREQ_CORR_F
+  GPS8_FREQ_TREND_F
+  GPS8_LAST_FREQ_CORR_TIME_L
+  GPS8_NEXT_LEAP_SECOND_L
+  GPS8_UNIX_TIME_D
+  TT_SELF_TEST_S
+  TT_PHASE_LOCKED_S
+  TT_PHASE_COMP_S
+  TT_NUM_SATS_S
+  TT_DAC_SETTING_S
+  TT_POS_UPDATE_FLAG_S
+  TT_LAT_D
+  TT_LON_D
+  TT_ALT_F
+  TT_UNIX_TIME_D
+end_structure
+
+structure UPS_DATA_X
+  AC_VOLTAGE_IN_F
+  AC_FREQUENCY_IN_F         # in Hertz
+  AC_WATTS_IN_F
+  AC_VA_OUT_F
+  AC_VA_LIMIT_F
+  AC_VOLTAGE_OUT_F
+  AC_CURRENT_OUT_F
+  BATTERY_VOLTAGE_F
+  BATTERY_CURRENT_F
+  LOAD_PERCENTAGE_F
+  RUN_TIME_AVAILABLE_F      # in minutes
+  AMBIENT_TEMPERATURE_F     # in degrees celsius
+  HEAT_SINK_TEMPERATURE_F   # in degrees celsius
+  TRANSFORMER_TEMPERATURE_F # in degrees celsius
+  NUMBER_OF_POWER_OUTAGES_S 
+  NUMBER_OF_OVERLOADS_S 
+  SYSTEM_HOURS_L 
+  INV_MIN_F
+  SYSTEM_MODE_S 
+  SYSTEM_READY_S
+  INVERTER_STATE_S
+  ACTIVE_ALARMS_L           # 21 bits
+  MOST_RECENT_LINE_FAULT_L  # in unixtime
+  MOST_RECENT_BROWNOUT_L    # in unixtime
+  MOST_RECENT_TURN_ON_L     # in unixtime
+  CHARGER_STATE_S
+  BEEPER_STATE_S
+  SOFTWARE_VERSION_S        # 8.07 stored as 807
+  LINE_FAULT_DURATION_L     # in seconds
+  BROWNOUT_DURATION_L       # in seconds
+  BROWNOUT_THRESHOLD_F      # volts
+  EXTENDED_BROWNOUT_MODE_S  # 0=no, 1=yes
+end_structure
+
+structure UPS2_DATA_X
+  AC_VOLTAGE_IN_F
+  AC_FREQUENCY_IN_F         # in Hertz
+  AC_WATTS_IN_F
+  AC_VA_OUT_F
+  AC_VA_LIMIT_F
+  AC_VOLTAGE_OUT_F
+  AC_CURRENT_OUT_F
+  BATTERY_VOLTAGE_F
+  BATTERY_CURRENT_F
+  LOAD_PERCENTAGE_F
+  RUN_TIME_AVAILABLE_F      # in minutes
+  AMBIENT_TEMPERATURE_F     # in degrees celsius
+  HEAT_SINK_TEMPERATURE_F   # in degrees celsius
+  TRANSFORMER_TEMPERATURE_F # in degrees celsius
+  NUMBER_OF_POWER_OUTAGES_S 
+  NUMBER_OF_OVERLOADS_S 
+  SYSTEM_HOURS_L 
+  INV_MIN_F
+  SYSTEM_MODE_S 
+  SYSTEM_READY_S
+  INVERTER_STATE_S
+  ACTIVE_ALARMS_L           # 21 bits
+  MOST_RECENT_LINE_FAULT_L  # in unixtime
+  MOST_RECENT_BROWNOUT_L    # in unixtime
+  MOST_RECENT_TURN_ON_L     # in unixtime
+  CHARGER_STATE_S
+  BEEPER_STATE_S
+  SOFTWARE_VERSION_S        # 8.07 stored as 807
+  LINE_FAULT_DURATION_L     # in seconds
+  BROWNOUT_DURATION_L       # in seconds
+  BROWNOUT_THRESHOLD_F      # volts
+  EXTENDED_BROWNOUT_MODE_S  # 0=no, 1=yes
+end_structure
+
+structure UPS3_DATA_X
+  AC_VOLTAGE_IN_F
+  AC_FREQUENCY_IN_F         # in Hertz
+  AC_WATTS_IN_F
+  AC_VA_OUT_F
+  AC_VA_LIMIT_F
+  AC_VOLTAGE_OUT_F
+  AC_CURRENT_OUT_F
+  BATTERY_VOLTAGE_F
+  BATTERY_CURRENT_F
+  LOAD_PERCENTAGE_F
+  RUN_TIME_AVAILABLE_F      # in minutes
+  AMBIENT_TEMPERATURE_F     # in degrees celsius
+  HEAT_SINK_TEMPERATURE_F   # in degrees celsius
+  TRANSFORMER_TEMPERATURE_F # in degrees celsius
+  NUMBER_OF_POWER_OUTAGES_S 
+  NUMBER_OF_OVERLOADS_S 
+  SYSTEM_HOURS_L 
+  INV_MIN_F
+  SYSTEM_MODE_S 
+  SYSTEM_READY_S
+  INVERTER_STATE_S
+  ACTIVE_ALARMS_L           # 21 bits
+  MOST_RECENT_LINE_FAULT_L  # in unixtime
+  MOST_RECENT_BROWNOUT_L    # in unixtime
+  MOST_RECENT_TURN_ON_L     # in unixtime
+  CHARGER_STATE_S
+  BEEPER_STATE_S
+  SOFTWARE_VERSION_S        # 8.07 stored as 807
+  LINE_FAULT_DURATION_L     # in seconds
+  BROWNOUT_DURATION_L       # in seconds
+  BROWNOUT_THRESHOLD_F      # volts
+  EXTENDED_BROWNOUT_MODE_S  # 0=no, 1=yes
+end_structure
+
+structure UPS4_DATA_X
+  AC_VOLTAGE_IN_F
+  AC_FREQUENCY_IN_F         # in Hertz
+  AC_WATTS_IN_F
+  AC_VA_OUT_F
+  AC_VA_LIMIT_F
+  AC_VOLTAGE_OUT_F
+  AC_CURRENT_OUT_F
+  BATTERY_VOLTAGE_F
+  BATTERY_CURRENT_F
+  LOAD_PERCENTAGE_F
+  RUN_TIME_AVAILABLE_F      # in minutes
+  AMBIENT_TEMPERATURE_F     # in degrees celsius
+  HEAT_SINK_TEMPERATURE_F   # in degrees celsius
+  TRANSFORMER_TEMPERATURE_F # in degrees celsius
+  NUMBER_OF_POWER_OUTAGES_S
+  NUMBER_OF_OVERLOADS_S
+  SYSTEM_HOURS_L
+  INV_MIN_F
+  SYSTEM_MODE_S
+  SYSTEM_READY_S
+  INVERTER_STATE_S
+  ACTIVE_ALARMS_L           # 21 bits
+  MOST_RECENT_LINE_FAULT_L  # in unixtime
+  MOST_RECENT_BROWNOUT_L    # in unixtime
+  MOST_RECENT_TURN_ON_L     # in unixtime
+  CHARGER_STATE_S
+  BEEPER_STATE_S
+  SOFTWARE_VERSION_S        # 8.07 stored as 807
+  LINE_FAULT_DURATION_L     # in seconds
+  BROWNOUT_DURATION_L       # in seconds
+  BROWNOUT_THRESHOLD_F      # volts
+  EXTENDED_BROWNOUT_MODE_S  # 0=no, 1=yes
+end_structure
+
+structure UPS5_DATA_X
+  AC_VOLTAGE_IN_F
+  AC_FREQUENCY_IN_F         # in Hertz
+  AC_WATTS_IN_F
+  AC_VA_OUT_F
+  AC_VA_LIMIT_F
+  AC_VOLTAGE_OUT_F
+  AC_CURRENT_OUT_F
+  BATTERY_VOLTAGE_F
+  BATTERY_CURRENT_F
+  LOAD_PERCENTAGE_F
+  RUN_TIME_AVAILABLE_F      # in minutes
+  AMBIENT_TEMPERATURE_F     # in degrees celsius
+  HEAT_SINK_TEMPERATURE_F   # in degrees celsius
+  TRANSFORMER_TEMPERATURE_F # in degrees celsius
+  NUMBER_OF_POWER_OUTAGES_S
+  NUMBER_OF_OVERLOADS_S
+  SYSTEM_HOURS_L
+  INV_MIN_F
+  SYSTEM_MODE_S
+  SYSTEM_READY_S
+  INVERTER_STATE_S
+  ACTIVE_ALARMS_L           # 21 bits
+  MOST_RECENT_LINE_FAULT_L  # in unixtime
+  MOST_RECENT_BROWNOUT_L    # in unixtime
+  MOST_RECENT_TURN_ON_L     # in unixtime
+  CHARGER_STATE_S
+  BEEPER_STATE_S
+  SOFTWARE_VERSION_S        # 8.07 stored as 807
+  LINE_FAULT_DURATION_L     # in seconds
+  BROWNOUT_DURATION_L       # in seconds
+  BROWNOUT_THRESHOLD_F      # volts
+  EXTENDED_BROWNOUT_MODE_S  # 0=no, 1=yes
+end_structure
+
+structure UPS6_DATA_X
+  AC_VOLTAGE_IN_F
+  AC_FREQUENCY_IN_F         # in Hertz
+  AC_WATTS_IN_F
+  AC_VA_OUT_F
+  AC_VA_LIMIT_F
+  AC_VOLTAGE_OUT_F
+  AC_CURRENT_OUT_F
+  BATTERY_VOLTAGE_F
+  BATTERY_CURRENT_F
+  LOAD_PERCENTAGE_F
+  RUN_TIME_AVAILABLE_F      # in minutes
+  AMBIENT_TEMPERATURE_F     # in degrees celsius
+  HEAT_SINK_TEMPERATURE_F   # in degrees celsius
+  TRANSFORMER_TEMPERATURE_F # in degrees celsius
+  NUMBER_OF_POWER_OUTAGES_S
+  NUMBER_OF_OVERLOADS_S
+  SYSTEM_HOURS_L
+  INV_MIN_F
+  SYSTEM_MODE_S
+  SYSTEM_READY_S
+  INVERTER_STATE_S
+  ACTIVE_ALARMS_L           # 21 bits
+  MOST_RECENT_LINE_FAULT_L  # in unixtime
+  MOST_RECENT_BROWNOUT_L    # in unixtime
+  MOST_RECENT_TURN_ON_L     # in unixtime
+  CHARGER_STATE_S
+  BEEPER_STATE_S
+  SOFTWARE_VERSION_S        # 8.07 stored as 807
+  LINE_FAULT_DURATION_L     # in seconds
+  BROWNOUT_DURATION_L       # in seconds
+  BROWNOUT_THRESHOLD_F      # volts
+  EXTENDED_BROWNOUT_MODE_S  # 0=no, 1=yes
+end_structure
+
+structure UPS_ENET_DATA_X
+  AC_VOLTAGE_IN_V24_F
+  AC_FREQUENCY_IN_V24_F         # in Hertz
+  AC_WATTS_IN_V24_S             # was float
+  AC_VA_OUT_V24_S               # was float
+  AC_VA_LIMIT_V24_S             # was float
+  AC_VOLTAGE_OUT_V24_F
+  AC_CURRENT_OUT_V24_F
+  BATTERY_VOLTAGE_V24_F
+  BATTERY_CURRENT_V24_F
+  LOAD_PERCENTAGE_V24_S         # was float
+  RUN_TIME_AVAILABLE_V24_S      # in minutes, was float
+  AMBIENT_TEMPERATURE_V24_S     # in degrees celsius, was float
+  HEAT_SINK_TEMPERATURE_V24_S   # in degrees celsius, was float
+  TRANSFORMER_TEMPERATURE_V24_S # in degrees celsius, was float
+  NUMBER_OF_POWER_OUTAGES_V24_S 
+  NUMBER_OF_OVERLOADS_V24_S 
+  SYSTEM_HOURS_V24_S            # was float
+  INV_MIN_V24_F
+  SYSTEM_MODE_V24_S             # 0=off, 1=auto, 2=linecondition, 3=inverter
+  SYSTEM_READY_V24_S            # 0=no, 1=yes
+  INVERTER_STATE_V24_S          # 0=no, 1=yes
+  ACTIVE_ALARMS_V24_L           # 21 bits
+  MOST_RECENT_LINE_FAULT_V24_L  # in unixtime
+  MOST_RECENT_BROWNOUT_V24_L    # in unixtime
+  MOST_RECENT_TURN_ON_V24_L     # in unixtime
+  CHARGER_STATE_V24_S           # 0=disabled, 1=auto, 2=enabled
+  BEEPER_STATE_V24_S            # 0=disabled, 1=enabled
+  SOFTWARE_VERSION_V24_S        # 8.07 stored as 807
+  LINE_FAULT_DURATION_V24_L     # in seconds
+  BROWNOUT_DURATION_V24_L       # in seconds
+  BROWNOUT_THRESHOLD_V24_F      # volts
+  EXTENDED_BROWNOUT_MODE_V24_S  # 0=no, 1=yes
+end_structure
+
+structure PLOT_FREQ_INFO_X
+  CHUNK_FREQUENCIES_V2_V2_V24_D # Center frequency for each chunk [RX][SIDEBAND][CHUNK]
+  CHUNK_VRADIAL_V2_V2_V24_D     # Center radial velocity for each chunk [RX][SIDEBAND][CHUNK]
+end_structure
+
+structure PHASEMON_DATA_X
+  CORR_AMPLITUDE_V10_D
+  RAW_PHASE_V10_D
+  UNWRPD_PHASE_V10_D
+  ATMOSPHERIC_PHASE_V10_D
+  RMS_PHASE_V10_V12_D
+  PHASE_STRUCT_V10_V19_F
+end_structure
+
+structure PHASEMON_HRDWR_STAT_X
+  NEG_5V_RACK_F
+  POS_5V_RACK_F
+  POS_12V_RACK_F
+  POS_25V_RACK_F
+  POS_15VA_RACK_F
+  POS_15VB_RACK_F
+  NEG_15V_RACK_F
+  SYNTH_LOCK_B
+  TEMP_SENSE_V6_F
+  HUM_SENSE_V6_F
+  TX_STAT_RACK_V5_B
+  RX_STAT_RACK_V5_B
+  TX_STAT_PAD_V5_B
+  RX_STAT_PAD_V5_B
+  POS_16V_PAD_V5_F
+  POS_5VA_PAD_V5_F
+  POS_12V_PAD_V5_F
+  POS_5VB_PAD_V5_F
+  NEG_5V_PAD_V5_F
+  SENSOR_PADS_V5_B
+  RF_PWR_V5_F
+  PHASEMON_PADS_V5_B
+  BASELINES_V10_V3_B
+end_structure
+
+structure ANT_WEATHER_DATA_X   # Weather information for antenna weather stations
+  TEMPERATURE_V9_F             # Element 0 will not be used
+  HUMIDITY_V9_F
+  PRESSURE_V9_F
+  TIME_STAMP_V9_L
+end_structure 
+
+structure DSM_ANTENNA5_TEMPS_X
+    QUADRUPOD_1_V24_F
+    QUADRUPOD_2_V24_F
+    QUADRUPOD_3_V24_F
+    QUADRUPOD_4_V24_F
+    HUB_BUS_V60_F
+    CABIN_V15_F
+    REFLECTOR_V52_F
+    ANTENNA_THERMOMETERS_V20_F
+    ANTENNA_SURFACE_MINMAX_TEMPS_V24_F
+    TIME_STAMP_V9_L    
+end_structure 
+
+structure ROACH2_TEMPS_X
+  AMBIENT_TEMP_V8_F     # Ambient Temperature C
+  PPC_TEMP_V8_F         # CPU Temperature C
+  FPGA_TEMP_V8_F        # FPGA Temperature C
+  INLET_TEMP_V8_F       # INPUT Temperature C
+  OUTLET_TEMP_V8_F      # OUTLET Temperature C
+  TIMESTAMP_V8_L        # ROACH2 timestamp 
+end_structure
+
+structure BDC_X
+   DSM_BDC_AR1_CTRL_READBACK_V8_F           # Variable Amplifier 1 control voltage readback
+   DSM_BDC_AR2_CTRL_READBACK_V8_F           # Variable Amplifier 2 control voltage readback
+   DSM_BDC_AT20_CTRL_READBACK_V8_F          # Variable Attenuator 1 control voltage readback
+   DSM_BDC_AT21_CTRL_READBACK_V8_F          # Variable Attenuator 2 control voltage readback
+   DSM_BDC_AR1_CTRL_NOMINAL_V8_F            # Variable Amplifier 1 control voltage nominal
+   DSM_BDC_AR2_CTRL_NOMINAL_V8_F            # Variable Amplifier 2 control voltage nominal
+   DSM_BDC_AT20_CTRL_NOMINAL_V8_F           # Variable Attenuator 1 control voltage nominal
+   DSM_BDC_AT21_CTRL_NOMINAL_V8_F           # Variable Attenuator 2 control voltage nominal
+   DSM_BDC_AR1_DETECTOR_READBACK_V8_F       # Detector Readback voltage Amplifier 1
+   DSM_BDC_AR2_DETECTOR_READBACK_V8_F       # Detector Readback voltage Amplifier 2
+   DSM_BDC_AT20_DETECTOR_READBACK_V8_F      # Detector Readback voltage Attenuator 1
+   DSM_BDC_AT21_DETECTOR_READBACK_V8_F      # Detector Readback voltage Attenuator 2
+   DSM_BDC_AR1_DETECTOR_TARGET_V8_F         # Detector Target voltage Amplifier 1
+   DSM_BDC_AR2_DETECTOR_TARGET_V8_F         # Detector Target voltage Amplifier 2
+   DSM_BDC_AT20_DETECTOR_TARGET_V8_F        # Detector Target voltage Attenuator 1
+   DSM_BDC_AT21_DETECTOR_TARGET_V8_F        # Detector Target voltage Attenuator 2
+   DSM_BDC_TEMP_V2_V7_F                     # BDC Chassis temperatures (2)
+   DSM_BDC_DO_V8_C16                        # Digital output status 
+   DSM_BDC_DI_V8_B                          # Digital input status
+   DSM_BDC_TIMESTAMP_C15                    # Timestamp
+end_structure
+
+structure SPECTROMETER_X
+        ADCRANGE_V9_F
+        ADCRMS_V9_F
+        ADCCLIP_FRAC_V9_F
+        PMW_V9_F
+        ACC_DEL_READ_FRAC_V9_F
+        BOARD_TEMPERATURE_V9_F
+        FPGA_TEMPERATURE_V9_F
+        SCENE_V9_L
+        TIMESTAMP_SEC_V9_L
+        TIMESTAMP_USEC_V9_L
+        ACC_OVFL_COUNT_V9_L
+        ANT_INFO_FAIL_COUNT_V9_L
+end_structure
+
+#Structure to hold adc clibrations for ogp and inl
+structure SWARM_SAMPLER_CALIBRATIONS_X
+  ACTUAL_OFFSETS_V2_V4_F
+  ACTUAL_GAINS_V2_V4_F
+  ACTUAL_PHASES_V2_V4_F
+  ACTUAL_INL_V2_V4_V17_F
+  SAVED_OFFSETS_V2_V4_F
+  SAVED_GAINS_V2_V4_F
+  SAVED_PHASES_V2_V4_F
+  SAVED_INL_V2_V4_V17_F
+  DELTA_OFFSETS_V2_V4_F
+  DELTA_GAINS_V2_V4_F
+  DELTA_PHASES_V2_V4_F
+  DELTA_INL_V2_V4_V17_F
+  DELTA_OVL_CNT_V2_V4_L
+  DELTA_AVZ_V2_F		/* Average Zero over the cores */
+  DELTA_AVAMP_V2_F		/* Average Amplitude over the cores */
+end_structure
+
+# used to monitor SWARM fringe-stopping
+structure SWARM_FSTOP_STATS_X
+  FSTOP_AVG_RATE_V2_F            # Average fringe-phase update rate, Hz
+  FSTOP_ERR_CNT_L                # Number of errors encountered
+  FSTOP_DELAY_V2_D               # Derived delay from roach2
+  FSTOP_PHASE_V2_D               # Derived phase from roach2
+end_structure
+
+structure SWARM_FIXED_OFFSETS_X
+  DELAY_V2_D	                 # Fixed delay for both channels
+  PHASE_V2_D                     # Fixed phase offset for both channels
+end_structure
+
+# used to provide source geometry to SWARM
+structure SWARM_SOURCE_GEOM_X
+  SOURCE_RA_D                    # Source right ascension 
+  SOURCE_NAME_C24                # Source name, of course
+  GEOM_DELAY_A_V2_D              # Geometric delay, constant term
+  GEOM_DELAY_B_V2_D              # Geometric delay, cos(HA) term
+  GEOM_DELAY_C_V2_D              # Geometric delay, sin(HA) term
+end_structure
+
+# used to set input<->antpol mapping
+structure SWARM_MAPPING_X
+  INPUT0_ANT_B                   # Antenna mapped to input 0
+  INPUT0_POL_B                   # Polarization mapped to input 0 \
+                                 # 0=HOR, 1=VERT, 2=LCP, 3=RCP
+  INPUT0_IFBW_V2_F               # IF band input 0, MHz (start, stop)
+  INPUT1_ANT_B                   # Antenna mapped to input 1
+  INPUT1_POL_B                   # Polarization mapped to input 1 \
+                                 # 0=HOR, 1=VERT, 2=LCP, 3=RCP
+  INPUT1_IFBW_V2_F               # IF band input 1, MHz (start, stop)
+end_structure
+
+#########################################################
+# share definitions
+
+share SWARM OBS
+  SWARM_SAMPLER_HIST_V2_V256_L
+
+share SWARM SWARM_MONITOR
+  SWARM_LOADING_FACTOR_V2_F
+  SWARM_FSTOP_STATS_X
+
+share SWARM SWARM_MONITOR_AND_HAL
+  SWARM_SAMPLER_CALIBRATIONS_X
+
+share SWARM HALANDMONITOR
+  SWARM_SCAN_LENGTH_L           # Scan lenth in walsh cycles
+  SWARM_SYNC_L                  # Used to signal that the roach2 should sync
+
+share SWARM HAL
+  SWARM_ADC_CMD_V3_L
+  SWARM_ADC_CMD_RETURN_V3_L
+
+share SWARM SWARM_CONTROL
+  SWARM_MAPPING_X
+  SWARM_FIXED_OFFSETS_X
+  SWARM_SOURCE_GEOM_X
+  PATTERN_V2_V64_B               # One 64-step pattern per input (2 per)
+  SYNC_UNIX_TIME_D               # Unix time of next sync
+
+share OBS CURSESMONITOR
+  DSM_IWATCH_DATA_X    
+  UPS_DATA_X     # AR12 UPS
+  UPS2_DATA_X    # AR13 UPS
+  UPS3_DATA_X    # DR7 UPS
+  UPS4_DATA_X    # DR8a UPS
+  UPS5_DATA_X    # DR8b UPS
+  UPS6_DATA_X    # MAR UPS
+  UPS_ENET_DATA_X # will replace the above UPS_DATA instances
+  DSM_ANTENNA5_TEMPS_X
+  ROACH2_TEMPS_X
+  BDC_X
+  SPECTROMETER_X
+
+share DATACATCHER CORRPLOTTER
+  PLOT_FREQ_INFO_X
+
+share MONITOR SUMMIT_PPC
+  CPU_MAC_ADDRESS_V8_B # Only 6 bytes needed now, but prepare for later...
+
+share SUMMIT OBS
+  SMAINIT_REPORT_X
+
+share MRG CURSESMONITOR
+  MRG_CONTROL_X  # Written by mRGServer
+  MRG_STATUS_X   # Written by mRGStatusServer
+
+share C1DC CURSESMONITOR
+  C1DC_STATUS_X
+
+share CORCAWN CURSESMONITOR
+  CORR_PACU_STATUS_X                    # PACU status
+  DSM_CORCON_HAL_CORR_SHUTDOWN_MESSAGE_C80
+  CORR_CRATE_PS_STATUS_X                # crate power supply status
+  CORR_ARACK_PS_STATUS_X                # analog rack power status
+  DSM_CORCON_HAL_CRATE_PPC_TEMPS_V12_L  # temperatures of PowerPC chips
+                                        # in crate machines
+  DSM_LATENCY_S                         # dummy for latency testing
+
+share CRATE CORCAWN
+  DSM_CRATE_CORCON_ONECRATE_PS_STAT_C16 # holds crate power supply status
+                                        # for one crate
+  DSM_CRATE_CORCON_PPC_TEMP_L           # temperature of the PowerPC chip
+  DSM_LATENCY_S                         # dummy for latency testing
+
+share CRATE DDS
+  DSM_LATENCY_S                      # dummy for latency testing
+
+share DDS HALANDMONITOR
+  DDS_TO_HAL_X
+
+share DDS HAL
+  STATUS_SERVER_TO_DDS_X
+  DSM_DDS_HAL_TEMP_D      # Air temperature
+  DSM_DDS_HAL_HUMID_D     # Humidity
+  DSM_DDS_HAL_PRES_D      # Air presure
+
+  DSM_LATENCY_S  # dummy for latency testing
+
+share ACC CURSESMONITOR
+# the following were added by Todd on 8/31/2003 for Best Ferrups UPS
+  UPS_DATA_X              # One instance for each antenna UPS
+  DSM_ESTOP_BYPASS_L    
+  DSM_TUNE6_USERNAME_C20 # Should move to RM!
+
+share ACC HAL
+  DSM_LATENCY_S  # dummy for latency testing
+
+# commands to be sent from hal to the autoMonitorVarian program on the
+# antenna computers
+  DSM_TURN_ON_THE_TURBOPUMP_S   # 1 = command it on, 0 = command it off
+  DSM_OPEN_THE_CRYOSTAT_VALVE_S # 1 = open the valve, 0 = close the valve
+
+  DSM_TUNE6_USERNAME_C20        # Should move to RM!
+  DSM_NEW_STANFORD_GAIN_L
+  DSM_RESET_THE_CHOPPER_S
+  DSM_RESET_THE_SCB_S
+  DSM_ESTOP_COMMAND_S           # Needs to be moved to RM
+#Tells the patch panel daemon how to set bit 9 (D10) of the Unidig_D
+  DSM_AH_CONT_DET_MODE_S
+
+share CRATE CURSESMONITOR
+  CRATE_TO_HAL_X
+
+share CRATE HAL
+  DSM_BDA_IF_SEP_D        # IF half separation (Hz) in double bandwidth mode
+  DSM_LATENCY_S           # dummy for latency testing
+
+share DATACATCHER HALANDMONITOR
+  DSM_AS_SCAN_SOURCE_C24         # Name of source on most recent scan
+  LAST_SCAN_VISIBILITES_X        # Amp, phase and coherence of last scan
+  DSM_AS_FILE_NAME_C80           # Name of data file
+  DSM_AS_POLAR_V11_C1            # Antenna polarization state
+  DSM_AS_POLAR_MODE_S            # Polarization mode (1 = TRUE)
+
+share DATACATCHER OBS
+  LAST_SCAN_EFFICIENCIES_X
+
+share DATACATCHER HAL
+  DSM_AS_SCAN_MIRNUM_L           # MIR based number of most recent scan
+                                 # (not in structure, to make write_notifies easier)
+  DSM_AS_ANT_STATUS_V11_L        # Weight to be given to most recent scan
+  DSM_AS_SCAN_TIME_L             # Midpoint time of most recent scan
+  DSM_AS_SCAN_CORNUM_L           # Correlator based number of most recent scan
+  DSM_AS_POINTING_MODE_S         # 2 = Spectral ine, otherwise continuum
+  DSM_AS_LINE_SIDEBAND_S         # Sideband containing slectral line
+                                 # -1 = LSB, 1 = USB, otherwise crash hal
+  DSM_AS_LINE_BLOCK_S            # Block number containing spectral line
+  DSM_AS_LINE_CHUNK_S            # Chunk number containing spectral line
+  DSM_AS_LINE_BCHAN_S            # Starting channel for spectral point
+  DSM_AS_LINE_ECHAN_S            # Ending channel for spectral point
+  DSM_AS_CORRELATOR_RESTARTING_S # Flag to suppress operator messages when correlator restarts
+
+share STORAGE ACC
+  DSM_M5_ACC_SCAN_NO_L  # Last scan number
+
+share STORAGE M5ANDMONITOR
+  DSM_AS_SCANS_REMAINING_L       # Number of good scans still needed
+
+share HAL M5ANDMONITOR
+  DSM_AS_PROJECT_ID_L                    # Project ID
+  DSM_AS_PROJECT_PI_C30                  # Name of Project PI
+  DSM_AS_PROJECT_DESCRIPTION_C256        # Descriptive text about project
+  DSM_AS_PROJECT_COMMENT_C256            # Additional comments about project
+  DSM_AS_PROJECT_OBSERVER_C30            # Observer
+  DSM_AS_PROJECT_OPERATINGLOCATION_C256  # Operatign location
+  DSM_AS_PROJECT_STARTTIME_L             # Starting (unix)time of current project
+  DSM_AS_PROJECT_SCRIPT_PID_L            # pid of the observing script
+  DSM_AS_PROJECT_SCRIPT_FILENAME_C256    # filename of observing script
+  DSM_AS_SOURCE_TYPE_L                   # Source type description: flux cal, bandpass cal, etc.
+                                         # See /common/include/dataFlags.h for definitions
+  DSM_AS_IFLO_REST_FR_V2_D               # Rest frequency from setLO
+  DSM_AS_IFLO_RESIDUALS_V2_D             # Portion on MRG frequency handled by DDS
+  DSM_AS_IFLO_ANT2YIG_V2_V11_B           # Maps which YIG is used for each antenna
+  DSM_AS_IFLO_SIDEBAND_V2_S              # Sidebands for both receivers
+  DSM_AS_IFLO_VOFFSET_V2_D               # Velocity offset from setLO
+  DSM_AS_IFLO_FOFFSET_V2_D               # Frequency offset from setLO
+  DSM_AS_IFLO_RA_D                       # RA of last dopplerTracked source
+  DSM_AS_IFLO_DEC_D                      # Dec of last dopplerTracked source
+  DSM_AS_IFLO_MRG_V2_D                   # MRG frequency from setLO
+  DSM_AS_IFLO_GPLL_N_V2_S                # Gunn PLL harmonic
+  DSM_AS_IFLO_GUNN_N_V2_S                # Multiplier following Gunn from setLO
+  DSM_AS_IFLO_VSYSTEM_S                  # Velocity system from setLO
+  DSM_AS_IFLO_EORBIT_D                   # Earth orbital component of velocity from setLO
+  DSM_AS_IFLO_EROTAT_D                   # Earth rotation component of velocity from setLO
+  DSM_AS_IFLO_VRADIAL_D                  # Total radial velocity from setLO
+  DSM_AS_IFLO_VELO_D                     # Velocity from setLO
+  DSM_AS_IFLO_UT1MUTC_D                  # UT1-UTC from setLO
+  DSM_AS_IFLO_SOUR_C34                   # Source for with the last dopplerTrack was given
+  DSM_AS_IFLO_ARP_LAT_D                  # Latitude of setLO's ARP
+  DSM_AS_IFLO_ARP_LON_D                  # Longitude of setLO's ARP
+  DSM_AS_IFLO_REST_FR_D                  # Rest frequency from setLO
+  DSM_AS_IFLO_CHUNK_S                    # Chunk intowhich rest frequency falls from setLO
+  DSM_AS_IFLO_BLOCK_S                    # Block intowhich rest frequency falls from setLO
+  DSM_AS_IFLO_CHUNK_V2_S                 # Chunk intowhich rest frequency falls from setLO
+  DSM_AS_IFLO_BLOCK_V2_S                 # Block intowhich rest frequency falls from setLO
+  DSM_AS_IFLO_VOFFSET_D                  # Velocity offset from setLO
+  DSM_AS_IFLO_FOFFSET_D                  # Frequency offset from setLO
+  DSM_AS_IFLO_UPDTIME_D                  # Last update time of IF/LO stuff (from setLO)
+  DSM_AS_IFLO_UPDMJD_D                   # MJD at time of last update of setLO
+  DSM_AS_IFLO_UPDLST_D                   # LST at time of last update of setLO
+  DSM_AS_IFLO_MRG_SB_V2_S                # Sideband for YIG loop
+  DSM_AS_IFLO_LINE_NAME_V2_C41           # Names of the spectral lines
+  # DSM_AS_SCANS_REMAINING_L
+  DSM_BDA_IF_SEP_D                       # IF half separation (Hz) in double bandwidth mode
+  DSM_ONLINE_ANTENNAS_V11_B              # FALSE = antenna has been set offline.
+
+share STORAGE CURSESMONITOR
+  DSM_AS_SOURCE_C34      # Source Name
+  DSM_AS_10MHZ_SOURCE_B  # last commanded value: 1=free run, 2=GPS, 3=maser 
+
+share STORAGE HALANDMONITOR
+  DSM_AS_SCANS_REQUESTED_L # Total number of scans requested for the current
+                           # set.
+  DSM_AS_IFLO_SIDEBAND_S   # Sideband intowhich rest frequency falls from setLO
+
+share STORAGE HAL
+  DSM_AS_VSOURCE_D      # Source velocity
+  DSM_AS_VTYPE_S        # Source velocity reference system
+                        # 0 = error, 1 = LSR, 2 = togocentric
+  DSM_AS_CORRDATATYPE_L # correlator data type flag updated by the
+                        # project and endproject commands. 0:junk,
+                        # 1:interferometry,2:engineering
+                        #3:holography, 4: pointing.
+  DSM_AS_C1_SOURCE_S    # Source for pseudo-continuum channel
+  DSM_AS_ANTENNAS_V11_S # Flags which antennas are active (1 = active)
+                        # There is no antenna 0
+  DSM_AS_IFLO_NOISE_S   # 1 = Noise drawer active, 0 otherwise
+
+share HAL OBS
+  DSM_AS_C1_SOURCE_S         # Source for pseudo-continuum channel
+  ANT_WEATHER_DATA_X         # Weather data from antenna weather stations
+  DSM_OOSCAN_SCAN_COMPLETE_S # Flag sent by obscon when a scan completes
+  DSM_OBS_POLAR_V11_C1       # Antenna polarization state
+  DSM_OBS_POLAR_MODE_S       # Polarization mode (1 = TRUE)
+  DSM_ADJUST_SWARM_LEVELS_V2_V9_S      # Tell obscon to adjust SWARM levels
+  DSM_ENABLE_SWARM_ALC_V2_V9_S         # Tell obscon to enable/disable BDC ALCs
+
+share MONITOR HALANDMONITOR
+  DSM_MASER_STATUS_B        # ADAM6050 DI4
+  DSM_OBSCON_IDLE_TIME_L
+  DSM_OBSCONC_IDLE_TIME_L
+  DSM_OBSCONH_IDLE_TIME_L
+  DSM_OBSCONHP_IDLE_TIME_L
+
+share MONITOR CURSESMONITOR
+  PACU_POWER_STATS_X
+  PACU_INST_POWER_X
+  DSM_TEMPERATURE_SERVER_C7
+  DSM_HUMIDITY_SERVER_C7
+  DSM_WIND_SERVER_C7
+  DSM_PRESSURE_SERVER_C7
+  DSM_CSO_225GHZ_TAU_F
+  DSM_CSO_225GHZ_TAU_RMS_F
+  DSM_CSO_225GHZ_TAU_TSTAMP_L
+  DSM_CSO_350MICRON_TAU_SCALED_F # scaled to 225 GHz by factor of 23
+  DSM_CSO_350MICRON_TAU_TSTAMP_L
+  DSM_ANTENNA5_ESMA_STATUS_B     # ADAM6050 DI0
+  DSM_ANTENNA6_ESMA_STATUS_B     # ADAM6050 DI1
+  SMA_METEOROLOGY_X
+  DSM_MICRODUST_X
+  JCMT_METEOROLOGY_X
+  SUBARU_METEOROLOGY_X
+  KECK_METEOROLOGY_X
+  IRTF_METEOROLOGY_X
+  UKIRT_METEOROLOGY_X
+  CFHT_METEOROLOGY_X
+  UH88_METEOROLOGY_X
+  CSO_METEOROLOGY_X
+  VLBA_METEOROLOGY_X
+  DSM_MANUAL_WEATHER_FLAG_S      # 1 if weather entered manually by observers
+  DSM_JCMT_TAU_F
+  DSM_JCMT_TAU_TIMESTAMP_L 
+  DSM_JCMT_TAU_SERVER_TIMESTAMP_L 
+  DSM_ANALOG_ROOM_TEMPERATURE_F  # Celsius
+  DSM_ANALOG_ROOM_HITEMPLIMIT_F  # Celsius
+  DSM_ANALOG_ROOM_LOTEMPLIMIT_F  # Celsius
+  DSM_ANALOG_ROOM_HITEMPALARM_S  # 0=okay, 1=alarmTriggered
+  DSM_ANALOG_ROOM_LOTEMPALARM_S  # 0=okay, 1=alarmTriggered
+  DSM_OPMSG_SEVERITY_V22_S       # Operator message severity
+  DSM_OPMSG_PRIORITY_V22_S       # Operator message priority
+  DSM_OPMSG_TIME_V22_L           # Unix time when message was issued
+  DSM_OPMSG_TEXT_V22_C60         # Contents of operator message
+  DSM_OPMSG_PPC_V22_C20          # Name of the PowerPC sending the message
+  DSM_INTRUDER_STATUS_S          # 0 = No intruder, 1 = Intruder detected
+  DSM_LAST_INTRUDER_TIME_L       #
+  DSM_LOWER_VAULT_DOOR_STATUS_B  # ADAM6050 DI2
+  DSM_UPPER_VAULT_DOOR_STATUS_B  # ADAM6050 DI3
+  DSM_PROJECT_ID_L               # Project ID, used to control the hangar light
+  DSM_HANGAR_LIGHT_L             # value written by the hangarLight daemon
+  GPSD_REPORT_X
+  DSM_MEDIAN_WINDSPEED_F
+  DSM_MEDIAN_WINDDIR_F
+  DSM_SUMMIT_ROAD_STATUS_S
+  DSM_GETWEATHER_TIMESTAMP_L
+  UPS_DATA_X       # Rack 2 (alpha) UPS
+  UPS2_DATA_X      # Rack 4 (beta) UPS
+  UPS3_DATA_X      # Control Room A UPS
+  UPS4_DATA_X      # Control Room B UPS
+# UPS5_DATA_X      
+# UPS6_DATA_X
+
+share MONITOR HAL
+  DSM_LATENCY_S  # dummy for latency testing
+
+share HAL HALANDMONITOR
+  DSM_SCAN_FLAGS_V11_V2_L            # Has flag bits from last stored scan
+  DSM_CPT_AZOFF_ARCSEC_V11_D         # Azoff from last cpoint
+  DSM_CPT_ELOFF_ARCSEC_V11_D         # Eloff from last cpoint
+  DSM_IPT_AZOFF_ARCSEC_V11_D         # Azoff from last ipoint
+  DSM_IPT_ELOFF_ARCSEC_V11_D         # Eloff from last ipoint
+  DSM_VVM1_LOCK_STATUS_S
+  DSM_VVM2_LOCK_STATUS_S
+  DSM_LAST_DOPPLERTRACK_C100         # Text of the last dopplerTrack command
+  DSM_REQUESTED_CHUNK_V2_S           # Chunk numbers from dopplerTrack command
+  DSM_REQUESTED_FREQUENCY_V2_D       # Frequencies from dopplerTrack command
+  DSM_LAST_RESTARTCORRELATOR_C100    # Text of the last restartCorrelator command
+  DSM_HAL_HAL_POLAR_PATTERN_S        # Used to communicate with polar
+  DSM_HAL_HAL_POLAR_PATTERN_REQUEST_S
+  DSM_HAL_HAL_POLAR_STEP_S
+  DSM_HAL_HAL_CYCLE_NUMBER_S
+  DSM_HAL_HAL_POLAR_REQUESTED_CYCLES_S
+  DSM_HAL_HAL_POLAR_TSYS_FLAG_S
+  DSM_HAL_HAL_POLAR_ACTIVE_FLAG_S
+  DSM_HAL_HAL_NIGHTLY_POINTING_S     # last nightly script to have run (230, 345, etc.)
+  DSM_HAL_HAL_LAST_OPOINT_V11_L      # Unix time of last optical pointing
+  DSM_HAL_HAL_LAST_CPOINT_V11_L      # Unix time of last single dish pointing
+  DSM_HAL_HAL_LAST_CPOINT_RX_V11_S   # Receiver active during last single dish pointing
+  DSM_HAL_HAL_LAST_IPOINT_V11_L      # Unix time of last interferometric pointing
+  DSM_HAL_HAL_LAST_IPOINT_RX_S       # Receiver active during last single dish pointing
+  DSM_HAL_HAL_PROJECT_RECEIVERS_V3_S # Receivers in current project list
+  DSM_HAL_HAL_PROJECT_CRATES_V13_S   # Correlator crates in current project
+  DSM_HAL_HAL_STORAGE_SERVER_C40     # The computer storing visibility data
+  DSM_HAL_HAL_PROJECT_ANTENNAS_V11_S # Antennas in current project
+  DSM_DUALRXPOINT_SCAN_NUMBER_V8_L
+  DSM_DUALRXPOINT_TOTAL_SCANS_V8_L
+
+share TENZ DATACATCHER
+  DSM_SWARM_SCAN_END_L
+
+share HAS_AN_IRIG_CARD MONITOR
+  DSM_IRIG_MINUS_SYS_TIME_D # The IRIG time - the OS time, in seconds
+
+share ACC DDS
+  DSM_RECEIVER_DELAY_V2_F # Receiver-specific portion of the delay, for high (1) and low (0)
+  DSM_PATHWAY_DELAY_V2_F  # BDA-specific pathway portion of the delay for upper (1) and lower (0)
+
+share PHASE OBS
+  PHASEMON_DATA_X
+  PHASEMON_HRDWR_STAT_X
+  SAT_EPHEM_C210

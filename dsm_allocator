@@ -1,0 +1,692 @@
+#!/usr/bin/perl -w
+
+###########################################################
+# Allocator for SMA distributed shared memory.  Reads
+# dsm_allocation, and produces an allocation file 
+# which will be read by the dsm server.  Output file includes a
+# "version" number based on the time.
+#
+# Normally this program will be run from a make file.
+#
+# Usage: dsm_allocator <allocation input file>
+#
+# C. Katz, Dec. 2000, based on rm_allocator from reflective memory
+#                     system 
+#
+#########################################################################
+# Output binary file has the following form.  All integers are written
+# in network byte order.
+#------------------------------
+# version          | 4 byte int
+# max string size  | 4 byte int
+# no. of classes   | 4 byte int
+# no. of shares    | 4 byte int
+#------------------------------
+# then, for each class:
+#---------------------------------------------------------------
+# class name                      | string of length max_string_size
+# no. of machines in class        | 4 byte int
+# name of 1st machine in class    | string of length max_string_size
+# address of 1st machine in class | 4 byte int
+# name of 2nd machine in class    | string of length max_string_size
+# address of 2nd machine in class | 4 byte int
+#---------------------------------------------------------------
+# then, for each share:
+#---------------------------------------------------------------
+# class 1 of share            | string of length max_string_size
+# class 2 of share            | string of length max_string_size
+# no. of allocations in share | 4 byte int
+# allocation 1
+#   name                      | string of length max_string_size
+#   size                      | 4 byte int
+#   number of elements        | 4 byte int
+#   type                      | 1 byte character
+# 
+# allocation 2
+#   name                      | string of length max_string_size
+#   size                      | 4 byte int
+#   number of elements        | 4 byte int
+#   type                      | 1 byte character
+#
+#  etc.
+#  
+#  allocations may be standalone or structure elements
+#---------------------------------------------------------------
+###########################################################
+# $Id: dsm_allocator,v 2.3 2006/11/15 17:57:38 ckatz Exp $
+###########################################################
+
+use strict;
+
+$|=1;
+
+sub Usage {
+  print STDERR "Usage: $0 [-v] <allocation input file> <allocation output file>\n";
+}
+
+if($#ARGV < 1 || $#ARGV > 2) {
+  Usage;
+  exit(1);
+}
+
+my $verbose = 0;
+if(substr($ARGV[0],0,1) eq "-") {
+  if($ARGV[0] eq "-v") {
+    shift;
+    $verbose=1;
+  }
+  else {
+    Usage;
+    exit(1);
+  }
+}
+
+my $inputfile = shift;
+if(!defined($inputfile)) {
+  Usage;
+  exit(1);
+}
+
+my $outputfile = shift;
+if(!defined($outputfile)) {
+  Usage;
+  exit(1);
+}
+
+print "Allocating...";
+
+
+# do my own C preprocessing
+my $headerfile = "dsm.h";
+my $maxstringsize;
+print STDERR "Preprocessing\n" if($verbose);
+open IN, $headerfile or die "Can't open $headerfile";
+while(<IN>) {
+  if( /DSM_NAME_LENGTH\s+(.+)/ ) {
+    $maxstringsize  = $1;
+    next;
+  }
+}
+close IN;
+
+if( !defined($maxstringsize) ) {
+  print STDERR "Didn't find DSM_NAME_LENGTH in $headerfile\n";
+  die;
+}
+else {
+  if($verbose) {
+    print STDERR  "Read from $headerfile:\n";
+    print STDERR  "  maxstringsize  = $maxstringsize\n";
+  }
+}
+
+##########################################################
+# read in the list, processing each line as we come to it
+
+print STDERR "Parsing input file\n" if($verbose);
+
+open INP, $inputfile or die "$inputfile:";
+
+my %classes         = ();
+my %shares          = ();
+my %structures      = ();
+my $currentshare    = "";
+my $defining_struct = "";
+my $struct_sublist  = 0;
+
+while(<INP>) {
+  next if(/^\s*\#/); # skip comment lines
+  next if(/^\s*$/);  # skip empty lines
+  
+  ######
+  ###### allow split lines
+  ###### 
+  if(/\\$/) {
+    my $line = "";
+    while(/\\$/) {
+      chop;
+      chop;
+      $line .= $_;
+      
+      $_ = <INP>;
+    }
+    $line .= $_;
+    $_ = $line;
+  }
+  chop;
+
+  ######
+  ###### is it a class definition?
+  ######
+  if(/^\s*class/) {
+    # not allowed in a structure definition
+    if($defining_struct) {
+      fatal_error("class definition inside structure");
+    }
+
+    # yep, parse it
+    my ($classname, $memberlist) = /^\s*class\s+(\S+)\s+(.+)$/;
+
+    if(!$classname || !$memberlist) {
+      fatal_error("bad class definition");
+    }
+    else {
+      if(length $classname > $maxstringsize) {
+	fatal_error(qq{name "$1" too long (limit $maxstringsize chars)});
+      }
+
+      # parse the memberlist
+      my @memberlist = split ',',$memberlist;
+
+      for(my $i=0; $i<=$#memberlist; $i++) {
+	($memberlist[$i]) = ($memberlist[$i] =~ /^\s*(\S+)\s*$/);
+	if(!$memberlist[$i]) {
+	  fatal_error("bad class member list");
+	} # if memberlist entry is valid
+
+	if(length $memberlist[$i] > $maxstringsize) {
+	  fatal_error(qq{name "$1" too long (limit $maxstringsize chars)});
+	} # if memberlist entry is too long
+
+	# look up the machine name to make sure we can resolve it
+	print "Trying to resolve address of $memberlist[$i]..." if($verbose);
+	my $addr = gethostbyname($memberlist[$i]);
+	if(!defined($addr)) {
+	  print "failed\n" if($verbose);
+	  fatal_error("can't resolve address of $memberlist[$i]");
+	}
+	else {
+	  printf("%u.%u.%u.%u\n",unpack('C4', $addr)) if($verbose);
+	    
+	  # put this machine on the list
+	  push(@{$classes{$classname}}, $memberlist[$i], $addr);
+	}
+      } # loop over possible class members
+    } # class name good, now check memberlist
+  } # is this a class definition?
+
+
+  ######
+  ###### Is it the beginning of a structure definition?
+  ######
+  elsif(/^\s*structure/) {
+    # are we already defining a structure?
+    if($defining_struct) {
+      fatal_error("can't nest structure definitions");
+    }
+
+    # get the name
+    my ($structname) = /structure\s+(\w+_\w+)\s*\#?.*$/;
+  
+    if(!$structname) {
+      fatal_error("structure name missing");
+    }
+
+    my $ret = parse_allocation_definition($structname);
+    if(!ref $ret) {
+      fatal_error("invalid structure specifier");
+    }
+    
+    if($ret->[2] ne "x") {
+      fatal_error("structure name must end with _X specifier");
+    }
+
+    # is the name already used?
+    if(grep $_ eq $structname, keys %structures) {
+      fatal_error("duplicate structure definition");
+    }
+    
+    # make a new entry in the structures list
+    $structures{$structname} = [$structname, 0, 0, "x", []];
+    $defining_struct = $structname;
+
+    print STDERR "Defining structure $structname\n" if($verbose);
+
+  } # if it's the beginning of a structure definition
+
+  ######
+  ###### Is it the end of a structure definition?
+  ######
+  elsif(/^\s*end_structure/) {
+    # are we defining a structure?
+    if(!$defining_struct) {
+      fatal_error("no structure to end here");
+    }
+
+    # does the structure have any elements?
+    if(scalar @{$structures{$defining_struct}->[4]} == 0) {
+      fatal_error("structure $defining_struct has no elements");
+    }
+
+    print STDERR "Completed definition of structure $defining_struct\n"
+      if($verbose);
+
+    $defining_struct = "";
+  }
+
+  ######
+  ###### Is it a share definition?
+  ######
+  elsif(/^\s*share/) {
+    
+    if($defining_struct) {
+      fatal_error("share definition inside structure");
+    }
+
+    # yep, parse it
+    my @fields = split ' ',$_;
+    if($#fields != 2) {
+      fatal_error("bad share definition");
+    }
+
+    my ($class1, $class2) = @fields[1..2];
+
+    if(length $class1 > $maxstringsize) {
+      fatal_error(qq{name "$1" too long (limit $maxstringsize chars)});
+    }
+    if(length $class2 > $maxstringsize) {
+      fatal_error(qq{name "$1" too long (limit $maxstringsize chars)});
+    }
+
+    if(!grep $class1 eq $_, keys(%classes)) {
+      fatal_error("invalid class \"$class1\" in share definition");
+    }
+
+    if(!grep $class2 eq $_, keys(%classes)) {
+      fatal_error("invalid class \"$class2\" in share definition");
+    }
+
+    # check to see if we already have this share definition
+    foreach my $sharename (keys %shares) {
+      if(   $sharename eq "$class1-$class2" 
+	 || $sharename eq "$class2-$class1") {
+	fatal_error("duplicate share definition");
+      }
+    }
+    
+    # okay, we seem to have a new, valid share definition
+    $shares{"$class1-$class2"} = [];
+
+    $currentshare = "$class1-$class2";
+  }
+
+  
+  ######
+  ###### Is it an allocation definition?
+  ######
+  elsif(/^\s*(\w+_\w+)\s*\#?.*$/) { # strip comments off the ends of lines
+    my $alloc = $1;
+    
+    if($currentshare eq "invalid") {
+      fatal_error("share invalid, allocation ignored");
+    }
+
+    if(!$currentshare && !$defining_struct) {
+      fatal_error("allocation requested before any shares defined");
+    }
+    
+    my $ret = parse_allocation_definition($alloc);
+    if(!ref $ret) {
+      # there was an error
+      fatal_error($ret);
+    }
+
+    my ($size, $n_elements, $type) = @{$ret};
+    
+    if($type eq "x") {
+      # structure definition
+      if($defining_struct) {
+	fatal_error("structures may not be nested");
+      }
+      else {
+	if(!exists $structures{$alloc}) {
+	  fatal_error("structure $alloc not defined");
+	}
+	push @{$shares{$currentshare}}, @{$structures{$alloc}};
+      }
+    }
+    else {
+      if($defining_struct) {
+	# this is an element of a structure definition
+	$structures{$defining_struct}->[1] += $size;
+	$structures{$defining_struct}->[2] += 1;
+	
+	push( @{$structures{$defining_struct}->[4]},
+	      ($alloc, $size, $n_elements, $type) );
+      }
+      else {
+	# just a plain ol' non-structure allocation
+	push( @{$shares{$currentshare}}, 
+	      ($alloc, $size, $n_elements, $type, 0) );
+      }
+    }
+      
+    if($verbose) {
+      if($defining_struct) {
+	print "  adding ";
+      }
+      else {
+	print "added allocation ";
+      }
+      
+      if($type eq "x") {
+	printf "%s size=%d num_elements=%d type=%s\n",
+	  @{$structures{$alloc}}[0..3];
+	my $sublist = $structures{$alloc}->[4];
+	for(my $i=0; $i<=$#{$sublist}; $i+=4) {
+	  printf "%s|--%s size=%d num_sub_elements=%d type=%s\n",
+	      ' 'x18, @$sublist[$i..$i+3];
+	}
+      }
+      else {
+	print "$alloc size=$size num_elements=$n_elements type=$type\n";
+      }
+
+    }
+  } # allocation requested 
+  
+  
+  ######
+  ###### Can't understand the input line.
+  ######
+  else {
+    fatal_error("Syntax Error");
+  }
+  
+}
+
+close INP;
+
+###
+### Make sure class names and host names don't overlap
+###
+my %classhosterror = ();
+foreach my $class (keys %classes) {
+  for(my $i=0; $i<=$#{$classes{$class}}; $i+=2) {
+    foreach my $classname (keys %classes) {
+      if(lc($classname) eq $classes{$class}->[$i]) {
+	$classhosterror{$classname} = $classes{$class}->[$i];
+      }
+    }
+  }
+}
+if(%classhosterror) {
+  for (keys %classhosterror) {
+    print STDERR "Error: class name $_ collides with host name ",
+      $classhosterror{$_}, "\n";
+  }
+  print STDERR "Allocation failed\n";
+  exit;
+}
+
+###
+### Remove any shares which have no allocations
+###
+foreach my $share (keys %shares) {
+  if(scalar @{$shares{$share}} == 0) {
+    if($verbose) {
+      print "Share $share has no allocations; removing it\n";
+    }
+    delete $shares{$share};
+  }
+}
+
+###
+### Remove any classes which are not included in any shares
+###
+foreach my $class (keys %classes) {
+  my $found = 0;
+  foreach my $share (keys %shares) {
+    my ($class1,$class2) = split '-',$share;
+    if($class1 eq $class || $class2 eq $class) {
+      $found = 1;
+    }
+  }
+  if(!$found) {
+    if($verbose) {
+      print "Class $class is not used in any shares; removing it\n";
+    }
+    delete $classes{$class};
+  }
+}
+
+########################################################################
+### Allocation is good.  Pack the information into a table and write
+### it to the output file.
+###
+
+if($verbose) {
+  print "Defined ",scalar(keys %classes)," classes:\n  ";
+  print join "\n  ",keys %classes;
+  print "\n";
+
+  print "Defined ",scalar keys %shares," shares:\n";
+  foreach my $share (keys %shares) {
+    print "  share $share has ",
+          scalar @{$shares{$share}}/5,
+          " allocation",
+         scalar @{$shares{$share}}/5 != 1 ? "s" : "",
+         ":\n";
+    for(my $i=0; $i<scalar @{$shares{$share}}; $i+=5) {
+      printf "    type=%s  n_elem=%-4d size %-4d %s\n",
+	${$shares{$share}}[$i+3], ${$shares{$share}}[$i+2],
+	${$shares{$share}}[$i+1], ${$shares{$share}}[$i];
+      if(${$shares{$share}}[$i+3] eq "x") {
+	my $sl = ${$shares{$share}}[$i+4];
+	for(my $j=0; $j<=$#{$sl}; $j+=4) {
+	  printf "         %s         %-4d      %-4d    |--%s\n",
+	    $sl->[$j+3], $sl->[$j+2], $sl->[$j+1], $sl->[$j+0];
+	}
+      }
+    }
+  }  
+}
+
+##################################################
+# generate an allocation version number based on 
+# the time
+my $alloc_vers = time;
+
+
+
+##################################################
+# write the allocation table; all ints are written 
+# network byte order for unambiguous readback on
+# different platforms
+
+if($verbose) {
+  print STDERR "Writing allocation table to file \"$outputfile\"\n";
+}
+
+# allocation version
+my $table = pack "N",$alloc_vers;
+
+# string size for names
+$table .= pack "N",$maxstringsize;
+
+# number of classes
+$table .= pack "N",scalar(keys %classes);
+
+# number of shares
+$table .= pack "N",scalar(keys %shares);
+
+if($verbose) {
+  print "packed alloc_vers=$alloc_vers maxstringsize=$maxstringsize ",
+    "nclasses=",scalar(keys %classes),
+    " nshares=",scalar(keys %shares),"\n";
+}
+
+# the classes
+foreach my $class (keys %classes) {
+  $table .= pack "a${maxstringsize}",$class;
+  $table .= pack "N",scalar(@{$classes{$class}}/2);
+
+  if($verbose) {
+    print "packed class=$class  nmachines=",scalar(@{$classes{$class}}/2),"\n";
+  }
+
+  for(my $i=0; $i<scalar @{$classes{$class}}; $i+=2) {
+    $table .= pack "a${maxstringsize}a4",
+              ${$classes{$class}}[$i],
+              ${$classes{$class}}[$i+1];
+    if($verbose) {
+
+      printf "  packed machine=%s address=%u.%u.%u.%u\n", 
+             ${$classes{$class}}[$i],
+	      unpack("C4",${$classes{$class}}[$i+1]);
+    }
+
+  }
+}
+
+# the shares and their allocations
+foreach my $share (keys %shares) {
+
+  my ($class1,$class2) = split '-',$share;
+
+  $table .= pack "a${maxstringsize}a${maxstringsize}",$class1,$class2;
+  $table .= pack "N",scalar(@{$shares{$share}})/5;
+
+  if($verbose) {
+    print "packed class1=$class1 class2=$class2 nallocs=",
+    scalar(@{$shares{$share}})/5,"\n";
+  }
+
+  for(my $i=0; $i<scalar @{$shares{$share}}; $i+=5) {
+    $table .= pack "a${maxstringsize}",${$shares{$share}}[$i];
+    $table .= pack "N",${$shares{$share}}[$i+1];
+    $table .= pack "N",${$shares{$share}}[$i+2];
+    $table .= pack "C",ord(${$shares{$share}}[$i+3]);
+
+    if($verbose) {
+      print "  packed ",
+            ${$shares{$share}}[$i],
+            " size=",
+            ${$shares{$share}}[$i+1],
+            " num_elements=",
+            ${$shares{$share}}[$i+2],
+            " type=",
+            ${$shares{$share}}[$i+3],
+            "\n";
+    }
+
+    if(${$shares{$share}}[$i+3] eq "x") {
+      # it's a structure; pack the elements
+      my $el = ${$shares{$share}}[$i+4];
+
+      for(my $j=0; $j<=$#{$el}; $j+=4) {
+	$table .= pack "a${maxstringsize}",$el->[$j+0];
+	$table .= pack "N",$el->[$j+1];
+	$table .= pack "N",$el->[$j+2];
+	$table .= pack "C",ord($el->[$j+3]);
+
+	if($verbose) {
+	  print "          |--",$el->[$j+0],
+	        " size=",$el->[$j+1],
+		" num_sub_elements=",$el->[$j+2],
+		" type=",$el->[$j+3],"\n";
+        }
+      }
+    }
+
+  }
+}  
+
+if($^V lt v5.8) {
+  if($verbose) {
+    printf "Perl version %vd; not accounting for Unicode\n",$^V;
+  }
+  open OUT, "> $outputfile" or die "Can't open $outputfile: $!\n";
+}
+else {
+  if($verbose) {
+    printf "Perl version %vd; accounting for Unicode\n",$^V;
+  }
+
+  # tell perl that $table is Unicode so it won't re-encode it
+  $table = pack "U0C*", unpack "C*", $table;
+
+  open (OUT, ">:utf8", $outputfile) or die "Can't open $outputfile: $!\n";
+}
+
+print OUT $table;
+close OUT;
+
+print "complete\n";
+
+###########################################################################
+# takes a string containing an allocation name read from the file
+#
+# on success, returns a reference to a list: [size, n_elements, type]
+#   for a structure, size and n_elements are 0
+# on error, returns a string containing an error message
+#
+sub parse_allocation_definition {
+  my $alloc        = shift;
+  my $size         = 0;
+  my $num_elements = 0;
+
+# size table
+  my %typesizes = ("b" => 1,  # byte
+		   "s" => 2,  # short int
+		   "l" => 4,  # long int
+		   "f" => 4,  # single-precision float
+		   "d" => 8   # double-precision float
+		   );
+
+  if(length $alloc > $maxstringsize) {
+    return qq{name "$alloc" too long (limit $maxstringsize chars)\n};
+  }
+    
+  # we have a valid allocation request for this share; parse it
+  my @fields =  split '_', $alloc;
+    
+  # make sure there are at least 2 fields
+  if($#fields < 1) { 
+    return qq{SN1 $alloc}; 
+  }
+    
+  # make sure none of the fields are blank
+  if(scalar grep $_ eq "", @fields) {
+    return qq{SN2 $alloc};
+  }
+    
+  # determine the type
+  my $type = lc(substr($fields[-1],0,1));
+
+  # further parsing depends on type
+  if($type eq "c") {
+    # character(s): parse the rest to get the size
+    $size = substr $fields[-1],1 =~ /\d+/ or $size = 0;
+  }
+  elsif(length $fields[-1] == 1) { 
+    $size = $typesizes{lc $fields[-1]} or $size=0;
+  }
+  else {
+    $size = 0;
+  }
+  
+  if($type ne "x" && $size<=0) { 
+    return 'Invalid allocation size specifier';
+  }
+  
+  # so far so good; see whether a vector has been requested
+  if($type ne "x") {
+    $num_elements = 1;
+    foreach my $field (reverse @fields[0..$#fields-1]) {
+      last if($field !~ /^V/);
+      last unless ($field =~ /^V(\d+)$/);
+      $num_elements *= $1;
+      $size *= $1;
+    }
+  }
+
+  return [$size, $num_elements, $type];
+}
+
+
+sub fatal_error {
+  print STDERR "Error at $inputfile line $.: $_[0]\n";
+  print STDERR "Allocation failed\n";
+  exit;
+}
