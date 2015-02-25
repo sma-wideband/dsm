@@ -1,0 +1,11 @@
+# Ignore build files
+*.o
+
+# Ignore the old CVS directory
+CVS/
+
+# Ignore the binary DSM allocation files
+dsm_allocation.*
+
+# Ignore emacs backups
+*~
