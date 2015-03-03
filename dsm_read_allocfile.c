@@ -87,7 +87,7 @@ int filter_index(char type) {
   switch(type) {
   case 'b': return(XDR_FILTER_CHAR);
   case 's': return(XDR_FILTER_SHORT);
-  case 'l': return(XDR_FILTER_LONG);
+  case 'l': return(XDR_FILTER_DOUBLE);
   case 'f': return(XDR_FILTER_FLOAT);
   case 'd': return(XDR_FILTER_DOUBLE);
   case 'c': return(XDR_FILTER_STRING);
