@@ -282,7 +282,7 @@ struct alloc_entry {
   struct alloc_element {
     char   name[DSM_NAME_LENGTH];
     u_int  size;             /* total size of this element */
-    int    n_sub_elements;   /* how many subelements make up this element */
+    u_int  n_sub_elements;   /* how many subelements make up this element */
     int    xdr_filter_index; /* xdr filter to use for each subelement */
     void  *datap;            /* the element's data */
   } *elements;
