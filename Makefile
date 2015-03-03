@@ -19,7 +19,7 @@ LYNXOSLIBS   = $(COMMONLIB)/commonLib -lrpc -lnetinet
 ###################################################################
 # Definitions for building under Linux
 LINUXCC     = gcc
-LINUXCFLAGS = -g -Wall -D_POSIX_SOURCE -D_BSD_SOURCE -D_SVID_SOURCE
+LINUXCFLAGS = -g -Wall -D_POSIX_SOURCE -D_BSD_SOURCE -D_SVID_SOURCE -fPIC
 LINUXLIBS   = -lpthread -lrt
 
 ##############################################################
