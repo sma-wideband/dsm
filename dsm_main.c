@@ -52,7 +52,6 @@
 #include "dsm.h"
 #undef  _DSM_INTERNAL
 
-static char rcsid[] = "$Id: dsm_main.c,v 2.6 2013/03/01 21:01:40 ckatz Exp $";
 
 /********************/
 /* Global Variables */

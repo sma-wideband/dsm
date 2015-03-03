@@ -48,7 +48,6 @@
    it off by removing the DSM_NONAGLE macro */
 #undef DSM_NONAGLE
 
-static char rcsid[] = "$Id: dsm_client.c,v 2.8 2009/06/12 16:09:58 ckatz Exp $";
 
 extern int verbose;
 extern int dprintf(char *, ...);

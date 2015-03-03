@@ -45,7 +45,6 @@ SVCXPRT *svcfd_create(int, u_int, u_int);
 #undef  _DSM_INTERNAL
 
 
-static char rcsid[] = "$Id: dsm_dispatcher.c,v 2.6 2012/12/05 20:08:30 ckatz Exp $";
 
 #ifdef TIMING
 static struct timeval start,stop;

@@ -26,7 +26,6 @@
 #include "dsm.h"
 #undef  _DSM_INTERNAL
 
-static char rcsid[] = "$Id: dsm_server.c,v 2.6 2009/06/15 16:58:07 ckatz Exp $";
 
 /* everyone looks at the allocation list */
 extern struct alloc_list_head *alloclist;

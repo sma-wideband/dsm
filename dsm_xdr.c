@@ -20,7 +20,6 @@
 #include "dsm.h"
 #undef  _DSM_INTERNAL
 
-static char rcsid[] = "$Id: dsm_xdr.c,v 2.4 2012/12/06 18:27:06 ckatz Exp $";
 
 /********************************************************************/
 /* filter for encoding/decoding a single element of an alloc_entry; */

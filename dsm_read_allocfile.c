@@ -38,7 +38,6 @@
 #include "dsm.h"
 #undef _DSM_INTERNAL
 
-static char rcsid[] = "$Id: dsm_read_allocfile.c,v 2.8 2013/03/01 21:01:40 ckatz Exp $";
 
 
 /* given an open file pointed to by f, positioned at the beginning of an

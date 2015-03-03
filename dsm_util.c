@@ -32,7 +32,6 @@
 #include "dsm.h"
 #undef _DSM_INTERNAL
 
-static char rcsid[] = "$Id: dsm_util.c,v 2.5 2013/03/01 21:01:41 ckatz Exp $";
 
 #if NOT_TAB_SEM_TYPE==USE_SYSV_SEM
 /* id of SysV semaphore set */

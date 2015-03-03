@@ -146,7 +146,6 @@ void   dsm_error_message(int, char *);
 
 #ifdef _DSM_INTERNAL
 
-static char rcsid_hdr[] = "$Id: dsm.h,v 2.6 2013/03/01 21:01:39 ckatz Exp $";
 
 
 /* this really shouldn't be openly available, but some of my test
