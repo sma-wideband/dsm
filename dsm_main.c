@@ -339,7 +339,7 @@ int main(int argc, char *argv[]) {
 	alloclist[i].allocs[j].elements[k].datap =
 	  malloc(alloclist[i].allocs[j].elements[k].size);
 	if(alloclist[i].allocs[j].elements[k].datap == NULL) {
-	  fprintf(stderr, "Can't malloc(%zu) %s:datap: %s\n",
+	  fprintf(stderr, "Can't malloc(%u) %s:datap: %s\n",
 		  alloclist[i].allocs[j].elements[k].size,
 		  alloclist[i].allocs[j].elements[k].name,
 		  strerror(errno));
@@ -458,14 +458,14 @@ int main(int argc, char *argv[]) {
 
     for(i=0; i<nmachines; i++) {
       fprintf(stderr,
-	      "Sharing %d allocation%s (max size %zu) with machine %s:\n",
+	      "Sharing %d allocation%s (max size %u) with machine %s:\n",
 	     alloclist[i].nallocs,
 	     alloclist[i].nallocs==1 ? "" : "s",
 	     alloclist[i].largest,
 	     alloclist[i].machine_name);
       for(j=0; j<alloclist[i].nallocs; j++)
 	fprintf(stderr,
-		"  n_elem=%-3d size=%-3zu  name=%s\n",
+		"  n_elem=%-3d size=%-3u  name=%s\n",
 		alloclist[i].allocs[j].n_elements,
 		alloclist[i].allocs[j].size,
 		alloclist[i].allocs[j].name);

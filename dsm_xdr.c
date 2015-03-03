@@ -253,7 +253,7 @@ bool_t xdr_dsm_transaction(XDR *xdrs, struct dsm_transaction *arg) {
       if(arg->elements[i].datap == NULL) {
 	arg->elements[i].datap = malloc(arg->elements[i].size);
 	if(arg->elements[i].datap == NULL) {
-	  fprintf(stderr, "xdr_dsm_transaction(): malloc(datap %s, size=%zu): %s",
+	  fprintf(stderr, "xdr_dsm_transaction(): malloc(datap %s, size=%u): %s",
 		  arg->elements[i].name, arg->elements[i].size, strerror(errno));
 	  return(FALSE);
 	}
