@@ -357,7 +357,7 @@ int dsm_read_allocation_file(struct alloc_list_head **alhp, u_long *nmachp,
      network on which each host has one IP address, we don't allow DSM
      to share on multiple IP addresses from the same host.  This count
      is how we check that condition. */
-  my_addresses_in_allocfile = (u_long *)calloc(num_local_addresses,sizeof(int));
+  my_addresses_in_allocfile = (u_long *)calloc(num_local_addresses,sizeof(u_long));
   if(my_addresses_in_allocfile == (u_long *)NULL) {
     perror("calloc failed");
     return(DSM_ERROR);
