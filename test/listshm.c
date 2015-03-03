@@ -32,7 +32,7 @@ int main(void) {
   struct notification_table_entry *notification_table;
   char   *data_buffers;
   int    *dsm_nproc_notify_max_p;
-  size_t *max_buffer_size_p, max_buffer_size;
+  u_int  *max_buffer_size_p, max_buffer_size;
   int sem;
 #if NOT_TAB_SEM_TYPE==USE_SYSV_SEM
   union semun dummy_semarg;
@@ -71,7 +71,7 @@ int main(void) {
   }
   
   /* now we can get the value of max_buffer_size */
-  max_buffer_size = *( (size_t *)(shared_memory 
+  max_buffer_size = *( (u_int  *)(shared_memory 
 				  + sizeof(*dsm_nproc_notify_max_p)));
   printf("max_buffer_size = %d\n", max_buffer_size);
   
@@ -117,13 +117,13 @@ int main(void) {
   /* set up the pointers into the shared memory */
   dsm_nproc_notify_max_p = (int *)shared_memory;
   
-  max_buffer_size_p = (size_t *)(shared_memory
+  max_buffer_size_p = (u_int  *)(shared_memory
 				 +sizeof(*dsm_nproc_notify_max_p));
   
   notification_table =
     (struct notification_table_entry *)(shared_memory 
 					+ sizeof(int)
-					+ sizeof(size_t));
+					+ sizeof(u_int));
   
   data_buffers = (char *)notification_table
     + *dsm_nproc_notify_max_p * sizeof(*notification_table);

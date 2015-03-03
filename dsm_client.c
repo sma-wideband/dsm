@@ -77,7 +77,7 @@ static int shm_size;
 static struct notification_table_entry *notification_table;
 static char   *data_buffers;
 static int    *dsm_nproc_notify_max_p;
-static size_t *max_buffer_size_p;
+static u_int  *max_buffer_size_p;
 
 /* this is a list of just the alloc names, like that returned by
    dsm_get_allocation_list(); we keep an internal copy */
@@ -299,7 +299,7 @@ int dsm_init(void) {
   int i,sock;
 #endif
   int s;
-  size_t max_buffer_size;
+  u_int  max_buffer_size;
 
   /*********/
   /* Begin */
@@ -344,7 +344,7 @@ int dsm_init(void) {
     }
 
     /* now we can get the value of max_buffer_size */
-    max_buffer_size = *( (size_t *)(shared_memory 
+    max_buffer_size = *( (u_int  *)(shared_memory 
 				    + sizeof(*dsm_nproc_notify_max_p)));
     dprintf("dsm_init(): max_buffer_size = %d\n", max_buffer_size);
 
@@ -393,13 +393,13 @@ int dsm_init(void) {
     /* set up the pointers into the shared memory */
     dsm_nproc_notify_max_p = (int *)shared_memory;
 
-    max_buffer_size_p = (size_t *)(shared_memory
+    max_buffer_size_p = (u_int  *)(shared_memory
 				   +sizeof(*dsm_nproc_notify_max_p));
     
     notification_table =
       (struct notification_table_entry *)(shared_memory 
 					  + sizeof(int)
-					  + sizeof(size_t));
+					  + sizeof(u_int));
 
     data_buffers = (char *)notification_table
       + *dsm_nproc_notify_max_p * sizeof(*notification_table);
@@ -720,7 +720,7 @@ int dsm_get_info(char                            *targetname,
   lsip = &alloc_info_list[alloc_info_list_length];
 
   strcpy(lsip->name, allocname);
-  lsip->size         = (size_t)reply.data_size;
+  lsip->size         = (u_int)reply.data_size;
   lsip->n_elements   = (int)reply.n_elements;
   lsip->is_structure = (int)reply.is_structure;
 

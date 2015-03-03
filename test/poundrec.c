@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
   int i,j,s;
   unsigned long randseed;
   int howmany, totalallocs=0;
-  size_t size;
+  u_int  size;
   u_long mach,alloc;
 
   char myhostname[DSM_NAME_LENGTH];

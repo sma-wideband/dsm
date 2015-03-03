@@ -55,7 +55,7 @@ int main(int argc, char *argv[]) {
   int s, i, j;
   long writecount=0;
   char *p, *buf;
-  size_t size;
+  u_int  size;
 
   struct alloc_list_head *alhp = NULL;
   struct class_entry     *clp  = NULL;

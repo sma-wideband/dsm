@@ -90,12 +90,12 @@
 /* callers use this to keep local versions of dsm structures */
 struct dsm_local_structure_info {
   char   name[DSM_NAME_LENGTH];
-  size_t size;
+  u_int  size;
   int    n_elements;
   int    is_structure;
   struct {
     char    name[DSM_NAME_LENGTH];
-    size_t  size;
+    u_int   size;
     void   *datap;
   } *elements;
 };
@@ -272,7 +272,7 @@ struct alloc_entry {
   struct alloc_list_head *owner; /* back pointer to alh that owns this alloc */
 
   char    name[DSM_NAME_LENGTH];
-  size_t  size;          /* total size of data */
+  u_int   size;          /* total size of data */
   int     n_elements;    /* how many elements make up this alloc */
   int     is_structure;  
 
@@ -281,7 +281,7 @@ struct alloc_entry {
      have length n_elements */
   struct alloc_element {
     char   name[DSM_NAME_LENGTH];
-    size_t size;             /* total size of this element */
+    u_int  size;             /* total size of this element */
     int    n_sub_elements;   /* how many subelements make up this element */
     int    xdr_filter_index; /* xdr filter to use for each subelement */
     void  *datap;            /* the element's data */
@@ -321,7 +321,7 @@ struct alloc_list_head {
 				 number of non-structure allocation +
 				 total number of elements in structure
 				 allocations */
-  size_t largest;             /* size of largest alloc   */ 
+  u_int  largest;             /* size of largest alloc   */ 
   struct alloc_entry *allocs; /* array of length nallocs */
 };
 
@@ -384,7 +384,7 @@ struct notification_table_entry {
 
   char hostname[DSM_NAME_LENGTH];
   char allocname[DSM_NAME_LENGTH];
-  size_t size;
+  u_int  size;
 };
 
 
@@ -460,7 +460,7 @@ int  dsm_read_allocation_file(struct alloc_list_head **, u_long *,
 			      int,
 			      u_long *,
 			      char *);
-int  dsm_initialize_notification_table(size_t);
+int  dsm_initialize_notification_table(u_int);
 int  dsm_access_lock(void);
 void dsm_dispatcher(struct svc_req *,  SVCXPRT *);
 void allocation_version_check(SVCXPRT *, struct alloc_list_head *);

@@ -724,10 +724,10 @@ void dsm_launch_connection_thread(struct alloc_list_head *alhp) {
 /* set up the shared memory space which */
 /* holds the notification table         */
 /****************************************/
-int dsm_initialize_notification_table(size_t max_alloc_size) {
+int dsm_initialize_notification_table(u_int  max_alloc_size) {
   extern char   *shared_memory;
   extern int    *dsm_nproc_notify_max_p;
-  extern size_t *max_buffer_size_p;
+  extern u_int  *max_buffer_size_p;
 
   extern struct notification_table_entry *notification_table;
   extern char *data_buffers;
@@ -822,7 +822,7 @@ int dsm_initialize_notification_table(size_t max_alloc_size) {
     /* set up the pointers into the memory */
     dsm_nproc_notify_max_p = (int *)shared_memory;
     
-    max_buffer_size_p = (size_t *)(shared_memory
+    max_buffer_size_p = (u_int  *)(shared_memory
 				   + sizeof(*dsm_nproc_notify_max_p));
     
     /* now we can read the sizes */
@@ -863,7 +863,7 @@ int dsm_initialize_notification_table(size_t max_alloc_size) {
   /* set up the pointers into the memory */
   dsm_nproc_notify_max_p = (int *)shared_memory;
 
-  max_buffer_size_p = (size_t *)(shared_memory
+  max_buffer_size_p = (u_int  *)(shared_memory
 				 + sizeof(*dsm_nproc_notify_max_p));
 
   notification_table =
@@ -1099,7 +1099,7 @@ int dsm_initialize_notification_table(size_t max_alloc_size) {
 void dsm_notify_waiting_procs(char *hostname,
 			      struct alloc_entry *aep) {
 
-  extern size_t *max_buffer_size_p;
+  extern u_int  *max_buffer_size_p;
   extern struct notification_table_entry *notification_table;
   extern pthread_mutex_t notification_table_mutex;
   extern pthread_mutex_t notification_ring_mutex;

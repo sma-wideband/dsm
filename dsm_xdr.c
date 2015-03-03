@@ -27,7 +27,7 @@
 /* in here; for decoding, memory must already be allocated          */
 /********************************************************************/
 bool_t xdr_dsm_alloc_element(XDR *xdrs, struct alloc_element *element) {
-  size_t element_size;
+  u_int  element_size;
   int is_array, j, s;
 
   /* table of elementary xdr filters (indexed by xdr_filter_index) */
@@ -42,7 +42,7 @@ bool_t xdr_dsm_alloc_element(XDR *xdrs, struct alloc_element *element) {
 
   /* if there's more than one subelement we have to use an array filter */
   is_array = (element->n_sub_elements > 1) ? 1 : 0;
-  element_size = (size_t)(element->size / element->n_sub_elements);
+  element_size = (u_int)(element->size / element->n_sub_elements);
 
   switch(element->xdr_filter_index) {
   case XDR_VOID:
@@ -436,7 +436,7 @@ bool_t xdr_dsm_alloc_entry_array(XDR *xdrs,
       
       /* copy the data into the caller's data structure */
       strcpy(alhp->allocs[i].name, tr.allocname);
-      alhp->allocs[i].size         = (size_t)tr.data_size;
+      alhp->allocs[i].size         = (u_int)tr.data_size;
       alhp->allocs[i].n_elements   = (int)tr.n_elements;
       alhp->allocs[i].is_structure = (int)tr.is_structure;
       alhp->allocs[i].elements     = tr.elements;

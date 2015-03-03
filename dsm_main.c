@@ -82,7 +82,7 @@ pthread_mutex_t request_queue_mutex;
 pthread_mutex_t                 notification_table_mutex;
 void                            *shared_memory;
 int                             *dsm_nproc_notify_max_p;
-size_t                          *max_buffer_size_p;
+u_int                           *max_buffer_size_p;
 struct notification_table_entry *notification_table;
 char                            *data_buffers;
 
@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
   u_long *my_addresses;
   int my_num_addresses;
 
-  size_t largest_largest;
+  u_int  largest_largest;
 
   /*********/
   /* Begin */

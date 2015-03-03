@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
 
   int s, i, j;
   char *buf,*p;
-  size_t size;
+  u_int  size;
 
   struct alloc_list_head *alhp = NULL;
   struct class_entry     *clp  = NULL;

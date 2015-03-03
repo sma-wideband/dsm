@@ -670,7 +670,7 @@ int dsm_read_allocation_file(struct alloc_list_head **alhp, u_long *nmachp,
 	  
 	  (*alhp)[thismachine].nallocs = 0;
 	  (*alhp)[thismachine].nnames  = 0;
-	  (*alhp)[thismachine].largest = (size_t)0;
+	  (*alhp)[thismachine].largest = (u_int)0;
 	  (*alhp)[thismachine].allocs  = (struct alloc_entry *)NULL;
 	}
 
@@ -771,7 +771,7 @@ int dsm_read_allocation_file(struct alloc_list_head **alhp, u_long *nmachp,
 
 	  /* set the top level info for the new alloc */
 	  strcpy(new_alloc->name, allocname);
-     	  new_alloc->size = (size_t)ntohl(size);
+	  new_alloc->size = (u_int)ntohl(size);
 
 	  if(type == 'x') {
 	    new_alloc->is_structure = DSM_TRUE;
@@ -814,7 +814,7 @@ int dsm_read_allocation_file(struct alloc_list_head **alhp, u_long *nmachp,
 	      if(s!=DSM_SUCCESS) return(s);
 
 	      strcpy( new_alloc->elements[n].name, allocname);
-	      new_alloc->elements[n].size = (size_t)ntohl(size);
+	      new_alloc->elements[n].size = (u_int)ntohl(size);
 	      new_alloc->elements[n].n_sub_elements = (int)ntohl(n_elements);
 
 	      m = filter_index(type);
